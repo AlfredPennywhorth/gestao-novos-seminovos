@@ -52,7 +52,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       console.error('[useAuth] Erro ao buscar perfil:', error.message);
       setProfile(null);
     } else {
-      setProfile(data as Profile);
+      const loadedProfile = data as Profile;
+      if (!loadedProfile.ativo) {
+        setProfile(loadedProfile);
+        await supabase.auth.signOut();
+        setUser(null);
+        return;
+      }
+      setProfile(loadedProfile);
     }
   }, []);
 
