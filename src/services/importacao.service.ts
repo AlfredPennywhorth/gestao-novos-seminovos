@@ -32,6 +32,9 @@ export interface ResultadoImportacao {
 
 // Colunas obrigatórias esperadas na aba
 const COLUNAS_OBRIGATORIAS = ['PERÍODO', 'SETOR', 'ITEM', 'NOVOS', 'SEMINOVOS', 'Mês-Ano']
+const MAX_FILE_SIZE = 10 * 1024 * 1024
+const MAX_IMPORT_ROWS = 10_000
+const MAX_TEXT_LENGTH = 200
 
 // ─────────────────────────────────────────────
 // normalizarMesAno
@@ -90,6 +93,13 @@ export function normalizarMesAno(valor: string | number): string {
 // parseExcel
 // ─────────────────────────────────────────────
 export async function parseExcel(file: File): Promise<LinhaExcel[]> {
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error('A planilha excede o limite de 10 MB.')
+  }
+  if (!/\.(xlsx|xls)$/i.test(file.name)) {
+    throw new Error('Formato inválido. Selecione um arquivo .xlsx ou .xls.')
+  }
+
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: false })
 
@@ -113,6 +123,9 @@ export async function parseExcel(file: File): Promise<LinhaExcel[]> {
   if (linhas.length === 0) {
     throw new Error('A planilha está vazia ou não possui dados.')
   }
+  if (linhas.length > MAX_IMPORT_ROWS) {
+    throw new Error(`A planilha excede o limite de ${MAX_IMPORT_ROWS.toLocaleString('pt-BR')} linhas.`)
+  }
 
   // Valida colunas obrigatórias
   const cabecalho = Object.keys(linhas[0])
@@ -134,14 +147,29 @@ export async function parseExcel(file: File): Promise<LinhaExcel[]> {
       const item = String(linha['ITEM'] ?? '').trim()
       return setor !== '' && item !== ''
     })
-    .map((linha) => ({
+    .map((linha, index) => {
+      const novos = Number(linha['NOVOS'] ?? 0)
+      const seminovos = Number(linha['SEMINOVOS'] ?? 0)
+      const setor = String(linha['SETOR'] ?? '').trim()
+      const item = String(linha['ITEM'] ?? '').trim()
+
+      if (!Number.isFinite(novos) || !Number.isInteger(novos) || novos < 0 ||
+          !Number.isFinite(seminovos) || !Number.isInteger(seminovos) || seminovos < 0) {
+        throw new Error(`Linha ${index + 2}: quantidades devem ser números inteiros não negativos.`)
+      }
+      if (setor.length > MAX_TEXT_LENGTH || item.length > MAX_TEXT_LENGTH) {
+        throw new Error(`Linha ${index + 2}: setor ou item excede ${MAX_TEXT_LENGTH} caracteres.`)
+      }
+
+      return {
       periodo: String(linha['PERÍODO'] ?? linha['PERIODO'] ?? '').trim(),
-      setor: String(linha['SETOR'] ?? '').trim(),
-      item: String(linha['ITEM'] ?? '').trim(),
-      novos: Number(linha['NOVOS'] ?? 0),
-      seminovos: Number(linha['SEMINOVOS'] ?? 0),
+      setor,
+      item,
+      novos,
+      seminovos,
       mesAno: linha['Mês-Ano'] ?? linha['Mes-Ano'] ?? linha['MES-ANO'] ?? '',
-    }))
+      }
+    })
 
   return resultado
 }
@@ -251,7 +279,7 @@ export async function confirmarImportacao(
       almoxarifado_id: almoxarifadoId,
       usuario_id: userId,
       status: 'PROCESSANDO',
-      total_linhas: linhas.length,
+      total_linhas_lidas: linhas.length,
     })
     .select()
     .single()
@@ -329,8 +357,8 @@ export async function confirmarImportacao(
       .from('lotes_importacao')
       .update({
         status: 'CONCLUIDO',
-        total_novo: totalNovo,
-        total_seminovo: totalSeminovo,
+        total_qtd_novo: totalNovo,
+        total_qtd_seminovo: totalSeminovo,
         concluido_em: new Date().toISOString(),
       })
       .eq('id', loteId)
@@ -359,9 +387,10 @@ export async function verificarDuplicidade(
   const { data, error } = await supabase
     .from('lotes_importacao')
     .select('*')
-    .or(`nome_arquivo.eq.${nomeArquivo},almoxarifado_id.eq.${almoxarifadoId}`)
+    .eq('nome_arquivo', nomeArquivo)
+    .eq('almoxarifado_id', almoxarifadoId)
     .neq('status', 'DESFEITO')
-    .order('criado_em', { ascending: false })
+    .order('created_at', { ascending: false })
 
   if (error) {
     console.error('[importacao] Erro ao verificar duplicidade:', error.message)
@@ -402,9 +431,8 @@ export async function desfazerLote(
 
   Promise.resolve(
     supabase.rpc('registrar_auditoria', {
-      p_usuario_id: userId,
       p_acao: 'DESFAZER_LOTE',
-      p_tabela: 'lotes_importacao',
+      p_tabela_afetada: 'lotes_importacao',
       p_registro_id: loteId,
       p_dados_anteriores: null,
       p_dados_novos: { status: 'DESFEITO' },
