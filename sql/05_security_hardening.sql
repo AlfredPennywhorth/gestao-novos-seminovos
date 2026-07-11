@@ -125,6 +125,9 @@ CREATE TRIGGER trg_enforce_saida_ownership
 BEFORE INSERT OR UPDATE ON public.saidas_itens
 FOR EACH ROW EXECUTE FUNCTION public.enforce_saida_ownership();
 
+-- Remove the legacy spoofable signature before creating the safe API.
+DROP FUNCTION IF EXISTS public.registrar_auditoria(uuid,text,text,uuid,jsonb,jsonb,text);
+
 -- Audit identity is derived from the JWT, never accepted from the browser.
 CREATE OR REPLACE FUNCTION public.registrar_auditoria(
   p_acao text,
@@ -161,7 +164,14 @@ $$;
 REVOKE ALL ON FUNCTION public.registrar_auditoria(text,text,uuid,jsonb,jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.registrar_auditoria(text,text,uuid,jsonb,jsonb) TO authenticated;
 
--- SECURITY DEFINER RPCs must not be callable anonymously.
+-- Read-only dashboard/cost RPCs run as the caller so table RLS remains effective.
+ALTER FUNCTION public.get_custo_efetivo(date,uuid,uuid) SECURITY INVOKER;
+ALTER FUNCTION public.get_dashboard_resumo(date,date,uuid,uuid,uuid,text) SECURITY INVOKER;
+ALTER FUNCTION public.get_dashboard_kpis(date,date,uuid,uuid,uuid) SECURITY INVOKER;
+ALTER FUNCTION public.get_serie_temporal(date,date,uuid,uuid,uuid) SECURITY INVOKER;
+ALTER FUNCTION public.get_itens_sem_custo_especifico(date,date) SECURITY INVOKER;
+
+-- RPCs must not be callable anonymously.
 REVOKE ALL ON FUNCTION public.get_custo_efetivo(date,uuid,uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.get_dashboard_resumo(date,date,uuid,uuid,uuid,text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.get_dashboard_kpis(date,date,uuid,uuid,uuid) FROM PUBLIC, anon;
