@@ -2,7 +2,11 @@ import * as XLSX from 'xlsx'
 import type { LoteImportacao, InsertSaidaItem, Almoxarifado } from '@/types/database'
 import { TipoSaida, OrigemSaida } from '@/types/database'
 import { supabase } from '@/services/supabase'
-import { findOrCreate as findOrCreateSetor } from '@/services/setores.service'
+import {
+  findOrCreate as findOrCreateSetor,
+  normalizarNomeSetor,
+  setorExigeReclassificacao,
+} from '@/services/setores.service'
 import { findOrCreate as findOrCreateItem, vincularItemSetor } from '@/services/itens.service'
 import { createSaidasLote } from '@/services/saidas.service'
 import classificacaoSetores from '@/data/classificacao-setores.json'
@@ -510,9 +514,9 @@ async function resolverClassificacoes(
       const setorVinculado = Array.isArray(vinculo?.setores)
         ? vinculo.setores[0]
         : vinculo?.setores
-      if (setorVinculado) {
+      if (setorVinculado && !setorExigeReclassificacao(setorVinculado.nome)) {
         itensPorCodigo.set(chaveTexto(item.codigo), {
-          setor: normalizarSetor(setorVinculado.nome),
+          setor: normalizarNomeSetor(setorVinculado.nome),
           itemId: item.id,
           origem: setorVinculado.nome.toUpperCase() === SETOR_OUTROS ? 'OUTROS' : 'CADASTRO',
         })
@@ -525,7 +529,7 @@ async function resolverClassificacoes(
     if (itensPorCodigo.has(chave)) continue
     const setorCatalogo = CLASSIFICACAO_SETORES[chave]
     itensPorCodigo.set(chave, {
-      setor: setorCatalogo ? normalizarSetor(setorCatalogo) : SETOR_OUTROS,
+      setor: setorCatalogo ? normalizarNomeSetor(setorCatalogo) : SETOR_OUTROS,
       itemId: null,
       origem: setorCatalogo ? 'CATALOGO' : 'OUTROS',
     })

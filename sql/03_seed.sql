@@ -21,12 +21,13 @@ ON CONFLICT DO NOTHING;
 -- =============================================================================
 INSERT INTO public.setores (nome, descricao, ativo)
 VALUES
-  ('BEBÊ - CAMA E BANHO - CHINELOS', 'Itens para bebês: cama, banho e calçados', TRUE),
+  ('BEBÊ',                            'Itens para bebês',                         TRUE),
+  ('CAMA, MESA E BANHO',              'Itens de cama, mesa e banho',              TRUE),
   ('ENFERMOS',                        'Itens para pacientes/enfermos',             TRUE),
   ('FEMININO ADULTO',                 'Roupas e itens femininos adultos',           TRUE),
-  ('FEMININO INFANTIL',               'Roupas e itens femininos infantis',          TRUE),
+  ('INFANTIL FEMININO',               'Roupas e itens femininos infantis',          TRUE),
   ('MASCULINO ADULTO',                'Roupas e itens masculinos adultos',          TRUE),
-  ('MASCULINO INFANTIL',              'Roupas e itens masculinos infantis',         TRUE),
+  ('INFANTIL MASCULINO',              'Roupas e itens masculinos infantis',         TRUE),
   ('OUTROS',                          'Itens aguardando classificação manual',       TRUE)
 ON CONFLICT DO NOTHING;
 

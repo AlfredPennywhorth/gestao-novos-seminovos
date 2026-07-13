@@ -1,6 +1,32 @@
 import type { Setor, InsertSetor, UpdateSetor } from '@/types/database'
 import { supabase } from '@/services/supabase'
 
+const SETOR_MISTO_LEGADO = 'BEBE - CAMA E BANHO - CHINELOS'
+
+const SETORES_CANONICOS: Record<string, string> = {
+  'FEMININO INFANTIL': 'INFANTIL FEMININO',
+  'MASCULINO INFANTIL': 'INFANTIL MASCULINO',
+  [SETOR_MISTO_LEGADO]: 'OUTROS',
+}
+
+function chaveSetor(nome: string): string {
+  return nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase()
+}
+
+export function setorExigeReclassificacao(nome: string): boolean {
+  return chaveSetor(nome) === SETOR_MISTO_LEGADO
+}
+
+export function normalizarNomeSetor(nome: string): string {
+  const nomeNormalizado = nome.replace(/\s+/g, ' ').trim().toUpperCase()
+  return SETORES_CANONICOS[chaveSetor(nomeNormalizado)] ?? nomeNormalizado
+}
+
 // ─────────────────────────────────────────────
 // listSetores
 // ─────────────────────────────────────────────
@@ -108,13 +134,14 @@ export async function toggleActive(
 export async function findOrCreate(
   nome: string
 ): Promise<{ setor: Setor; criado: boolean }> {
-  const nomeTrimado = nome.trim()
+  const nomeTrimado = normalizarNomeSetor(nome)
 
   // Tenta buscar pelo nome (case-insensitive)
   const { data: existente, error: erroBusca } = await supabase
     .from('setores')
     .select('*')
     .ilike('nome', nomeTrimado)
+    .eq('ativo', true)
     .limit(1)
     .single()
 
@@ -135,6 +162,7 @@ export async function findOrCreate(
       .from('setores')
       .select('*')
       .ilike('nome', nomeTrimado)
+      .eq('ativo', true)
       .limit(1)
       .single()
 
