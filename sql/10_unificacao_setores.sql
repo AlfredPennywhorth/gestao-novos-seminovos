@@ -166,6 +166,19 @@ DELETE FROM public.item_setor vinculo
 USING tmp_setores_legados legado
 WHERE vinculo.setor_id = legado.id;
 
+-- O setor misto não tem mais função após a redistribuição. Exclui somente
+-- quando não restar nenhum vínculo ou histórico apontando para ele.
+DELETE FROM public.setores setor
+USING tmp_setores_legados legado
+WHERE setor.id = legado.id
+  AND legado.nome = 'BEBÊ - CAMA E BANHO - CHINELOS'
+  AND NOT EXISTS (
+    SELECT 1 FROM public.item_setor vinculo WHERE vinculo.setor_id = setor.id
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM public.saidas_itens saida WHERE saida.setor_id = setor.id
+  );
+
 UPDATE public.setores setor
 SET ativo = FALSE
 FROM tmp_setores_legados legado
