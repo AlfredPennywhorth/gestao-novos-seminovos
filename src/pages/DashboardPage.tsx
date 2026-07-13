@@ -1,13 +1,13 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
 import {
-  Package, Recycle, TrendingUp, Percent,
-  DollarSign, ShieldCheck, BarChart2, Presentation,
-  AlertCircle, RefreshCw, Filter
+  Package, Recycle, TrendingUp,
+  BarChart2, Presentation,
+  AlertCircle, RefreshCw, Filter, Award, Baby, UsersRound, Sparkles
 } from 'lucide-react'
 import { getDashboardKPIs, getSerieTemporal, getResumoPorSetor, getResumoPorItem, getTabelaAnalitica } from '@/services/dashboard.service'
 import { useAlmoxarifados } from '@/hooks/useAlmoxarifados'
@@ -18,11 +18,11 @@ import type { KPIData, SerieTemporalItem, ResumoPorSetor, ResumoPorItem, Filtros
 
 // ─── Paleta de cores ────────────────────────────────────────────────────────
 const COLORS = {
-  novo:     '#2563eb',
-  seminovo: '#16a34a',
+  novo:     '#10b981',
+  seminovo: '#f97316',
   total:    '#1a3a6b',
   economy:  '#16a34a',
-  pie:      ['#2563eb', '#16a34a'],
+  pie:      ['#10b981', '#f97316'],
 }
 
 // ─── Componente KPI Card ─────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ function KPICard({ label, value, sub, icon, iconBg = 'bg-institutional-blue-ligh
     : value;
 
   return (
-    <div className={`kpi-card animate-fade-in ${highlight ? 'border-economy-green' : ''} p-5 min-h-[140px] flex flex-col justify-between`}>
+    <div className={`kpi-card dashboard-kpi animate-fade-in ${highlight ? 'border-economy-green' : ''} p-5 min-h-[140px] flex flex-col justify-between`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <p className="kpi-label block font-semibold text-slate-500 text-xs uppercase tracking-wider leading-tight min-h-[32px] break-words">
@@ -165,7 +165,7 @@ function FiltrosBar({ filtros, onChange, onReset, almoxarifados, setores }: Filt
 }
 
 // ─── Tooltip customizado do Recharts ─────────────────────────────────────────
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
+function CustomTooltip({ active, payload, label, percent = false }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string; percent?: boolean }) {
   if (!active || !payload) return null
   return (
     <div className="bg-white border border-institutional-gray-border rounded-lg shadow-card-hover p-3 text-sm">
@@ -174,7 +174,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
         <div key={p.name} className="flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full" style={{ background: p.color }} />
           <span className="text-slate-600">{p.name}:</span>
-          <span className="font-medium">{formatNumber(p.value)}</span>
+          <span className="font-medium">{percent ? formatPercent(p.value) : formatNumber(p.value)}</span>
         </div>
       ))}
     </div>
@@ -215,6 +215,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [alertaCusto, setAlertaCusto] = useState(false)
+  const [chartMode, setChartMode] = useState<'absoluto' | 'percentual'>('absoluto')
 
   // Tabela analítica
   const [tabelaPage, setTabelaPage] = useState(1)
@@ -285,6 +286,55 @@ export default function DashboardPage() {
     { name: 'Seminovos', value: Number(kpis.totalSeminovos) },
   ] : []
 
+  const mesRecordista = useMemo(() => {
+    if (serie.length === 0) return null
+    return [...serie].sort((a, b) => b.totalGeral - a.totalGeral)[0]
+  }, [serie])
+
+  const economiaPorAno = useMemo(() => {
+    const grupos = new Map<string, { economia: number; itens: number }>()
+    serie.forEach(item => {
+      const ano = item.mes.slice(0, 4)
+      const atual = grupos.get(ano) ?? { economia: 0, itens: 0 }
+      atual.economia += item.economiaLiquida
+      atual.itens += item.totalSeminovos
+      grupos.set(ano, atual)
+    })
+    return [...grupos.entries()].sort(([a], [b]) => a.localeCompare(b))
+  }, [serie])
+
+  const comparativos = useMemo(() => {
+    const categoria = {
+      Feminino: { Novos: 0, Seminovos: 0 },
+      Masculino: { Novos: 0, Seminovos: 0 },
+      Diversos: { Novos: 0, Seminovos: 0 },
+    }
+    const faixa = {
+      Adulto: { Novos: 0, Seminovos: 0 },
+      Infantil: { Novos: 0, Seminovos: 0 },
+    }
+
+    porSetor.forEach(setor => {
+      const nome = setor.setorNome.toLocaleUpperCase('pt-BR')
+      const genero = nome.includes('FEMIN') ? 'Feminino' : nome.includes('MASCUL') ? 'Masculino' : 'Diversos'
+      categoria[genero].Novos += setor.totalNovos
+      categoria[genero].Seminovos += setor.totalSeminovos
+
+      if (nome.includes('INFANTIL') || nome.includes('BEBÊ') || nome.includes('BEBE')) {
+        faixa.Infantil.Novos += setor.totalNovos
+        faixa.Infantil.Seminovos += setor.totalSeminovos
+      } else if (nome.includes('ADULTO')) {
+        faixa.Adulto.Novos += setor.totalNovos
+        faixa.Adulto.Seminovos += setor.totalSeminovos
+      }
+    })
+
+    return {
+      categoria: Object.entries(categoria).map(([nome, valores]) => ({ nome, ...valores })),
+      faixa: Object.entries(faixa).map(([nome, valores]) => ({ nome, ...valores })),
+    }
+  }, [porSetor])
+
   if (loading) return <LoadingPage />
 
   return (
@@ -334,69 +384,97 @@ export default function DashboardPage() {
         setores={setores}
       />
 
+      <div className="dashboard-hero dashboard-section">
+        <div>
+          <div className="flex items-center gap-2 text-emerald-500 mb-2">
+            <Sparkles size={18} />
+            <span className="text-xs font-bold uppercase tracking-[0.16em]">Visão consolidada</span>
+          </div>
+          <h2>Painel dos atendimentos com itens novos e seminovos</h2>
+          <p>Análise comparativa do volume distribuído e do impacto do reaproveitamento para os atendimentos realizados.</p>
+        </div>
+        <span className="dashboard-status">Dados atualizados</span>
+      </div>
+
       {/* ── KPI Cards ──────────────────────────────────────────────────── */}
       <div className="dashboard-section">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <KPICard
-            label="Total de Saídas"
+            label="Total de itens atendidos"
             value={formatNumber(Number(kpis?.totalSaidas ?? 0))}
             icon={<Package size={20} className="text-institutional-blue" />}
+            sub="Consolidado no período"
           />
           <KPICard
-            label="Itens Novos"
+            label="Atendimentos com itens novos"
             value={formatNumber(Number(kpis?.totalNovos ?? 0))}
-            icon={<Package size={20} className="text-institutional-blue-medium" />}
-            iconBg="bg-blue-50"
+            sub={`${formatPercent(kpis && kpis.totalSaidas > 0 ? (kpis.totalNovos / kpis.totalSaidas) * 100 : 0)} do total`}
+            icon={<Sparkles size={20} className="text-emerald-500" />}
+            iconBg="bg-emerald-50"
           />
           <KPICard
-            label="Itens Seminovos"
+            label="Atendimentos com itens seminovos"
             value={formatNumber(Number(kpis?.totalSeminovos ?? 0))}
-            icon={<Recycle size={20} className="text-economy-green" />}
-            iconBg="bg-economy-green-light"
+            sub={`${formatPercent(Number(kpis?.percentualSeminovos ?? 0))} do total`}
+            icon={<Recycle size={20} className="text-orange-500" />}
+            iconBg="bg-orange-50"
           />
           <KPICard
-            label="% Novos"
-            value={formatPercent(kpis ? (kpis.totalSaidas > 0 ? (kpis.totalNovos / kpis.totalSaidas) * 100 : 0) : 0)}
-            sub="sobre o total"
-            icon={<Percent size={20} className="text-slate-500" />}
-            iconBg="bg-slate-100"
+            label="Mês recordista"
+            value={mesRecordista ? formatCompetencia(mesRecordista.mes) : 'Sem dados'}
+            sub={mesRecordista ? `${formatNumber(mesRecordista.totalGeral)} itens atendidos` : undefined}
+            icon={<Award size={20} className="text-violet-500" />}
+            iconBg="bg-violet-50"
           />
-          <KPICard
-            label="% Seminovos"
-            value={formatPercent(Number(kpis?.percentualSeminovos ?? 0))}
-            sub="sobre o total"
-            icon={<Percent size={20} className="text-slate-500" />}
-            iconBg="bg-slate-100"
-          />
-          <KPICard
-            label="Economia Estimada"
-            value={formatCurrency(Number(kpis?.economiaEstimada ?? 0))}
-            sub="líquida acumulada"
-            icon={<DollarSign size={20} className="text-economy-green" />}
-            iconBg="bg-economy-green-light"
-            highlight
-          />
-          <KPICard
-            label="Custo Evitado Bruto"
-            value={formatCurrency(Number(kpis?.custoEvitadoBruto ?? 0))}
-            sub="se fossem todos novos"
-            icon={<ShieldCheck size={20} className="text-institutional-blue" />}
-          />
-          <KPICard
-            label="Média Mensal"
-            value={formatCurrency(Number(kpis?.mediaMensalEconomia ?? 0))}
-            sub={`em ${kpis?.mesesComDados ?? 0} meses`}
-            icon={<TrendingUp size={20} className="text-institutional-blue" />}
-          />
+        </div>
+      </div>
+
+      <div className="dashboard-economy dashboard-section">
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 border-b border-emerald-500/20 pb-5 mb-5">
+          <div>
+            <div className="flex items-center gap-2 text-emerald-500 font-bold text-lg">
+              <TrendingUp size={21} />
+              Demonstrativo de economia com reaproveitamento
+            </div>
+            <p className="text-sm mt-1">Impacto estimado pela utilização de itens seminovos em vez da compra de itens novos.</p>
+          </div>
+          <span className="dashboard-status">Impacto financeiro positivo</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="economy-stat economy-stat-primary">
+            <span>Economia total gerada</span>
+            <strong>{formatCurrency(Number(kpis?.economiaEstimada ?? 0))}</strong>
+            <small>{formatNumber(Number(kpis?.totalSeminovos ?? 0))} itens reaproveitados</small>
+          </div>
+          {economiaPorAno.slice(-3).map(([ano, valor]) => (
+            <div className="economy-stat" key={ano}>
+              <span>Impacto em {ano}</span>
+              <strong>{formatCurrency(valor.economia)}</strong>
+              <small>{formatNumber(valor.itens)} itens atendidos</small>
+            </div>
+          ))}
+          {economiaPorAno.length === 0 && (
+            <div className="economy-stat">
+              <span>Média mensal</span>
+              <strong>{formatCurrency(Number(kpis?.mediaMensalEconomia ?? 0))}</strong>
+              <small>Sem detalhamento anual no período</small>
+            </div>
+          )}
         </div>
       </div>
 
       {/* ── Gráfico Principal: Série Temporal ──────────────────────────── */}
       <div className="dashboard-section">
         <div className="card">
-          <div className="section-title">
-            <BarChart2 size={18} />
-            Evolução Mensal — Novos × Seminovos × Total
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="section-title mb-0">
+              <BarChart2 size={18} />
+              Evolução dos atendimentos ao longo do tempo
+            </div>
+            <div className="chart-mode-toggle" aria-label="Formato do gráfico">
+              <button className={chartMode === 'absoluto' ? 'active' : ''} onClick={() => setChartMode('absoluto')}>Absoluto</button>
+              <button className={chartMode === 'percentual' ? 'active' : ''} onClick={() => setChartMode('percentual')}>Percentual</button>
+            </div>
           </div>
           {serie.length === 0 ? (
             <EmptyState
@@ -407,9 +485,9 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={320}>
               <AreaChart data={serie.map(s => ({
                 mes: formatCompetencia(s.mes),
-                Novos: s.totalNovos,
-                Seminovos: s.totalSeminovos,
-                Total: s.totalGeral,
+                Novos: chartMode === 'percentual' ? (s.totalGeral > 0 ? s.totalNovos / s.totalGeral * 100 : 0) : s.totalNovos,
+                Seminovos: chartMode === 'percentual' ? (s.totalGeral > 0 ? s.totalSeminovos / s.totalGeral * 100 : 0) : s.totalSeminovos,
+                Total: chartMode === 'percentual' ? 100 : s.totalGeral,
               }))}>
                 <defs>
                   <linearGradient id="gradNovo" x1="0" y1="0" x2="0" y2="1">
@@ -423,8 +501,8 @@ export default function DashboardPage() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#64748b' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
-                <Tooltip content={<CustomTooltip />} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={v => chartMode === 'percentual' ? `${v}%` : String(v)} />
+                <Tooltip content={<CustomTooltip percent={chartMode === 'percentual'} />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Area type="monotone" dataKey="Total" stroke={COLORS.total} fill="none"
                   strokeWidth={2} strokeDasharray="4 2" dot={false} />
@@ -493,8 +571,69 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
+              <div className="strategic-note">
+                <Sparkles size={18} />
+                <div>
+                  <strong>Leitura estratégica</strong>
+                  <p>
+                    {Number(kpis?.percentualSeminovos ?? 0) >= 50
+                      ? 'Os itens seminovos predominam no período, ampliando o reaproveitamento e a economia estimada.'
+                      : 'Os itens novos ainda predominam no período; acompanhe a evolução do reaproveitamento por setor.'}
+                  </p>
+                </div>
+              </div>
             </>
           )}
+        </div>
+      </div>
+
+      <div className="dashboard-section grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="card">
+          <div className="section-title">Atendimentos por categoria</div>
+          <p className="chart-description">Comparativo entre categorias femininas, masculinas e demais setores.</p>
+          <ResponsiveContainer width="100%" height={310}>
+            <BarChart data={comparativos.categoria} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+              <XAxis dataKey="nome" tick={{ fontSize: 11, fill: 'var(--chart-text)' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--chart-text)' }} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="Novos" fill={COLORS.novo} radius={[5, 5, 0, 0]} />
+              <Bar dataKey="Seminovos" fill={COLORS.seminovo} radius={[5, 5, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="card">
+          <div className="section-title">Faixa etária beneficiada</div>
+          <p className="chart-description">Distribuição entre setores de público adulto e infantil.</p>
+          <div className="grid grid-cols-2 gap-3 my-4">
+            {comparativos.faixa.map((grupo, index) => {
+              const total = grupo.Novos + grupo.Seminovos
+              const totalFaixas = comparativos.faixa.reduce((s, item) => s + item.Novos + item.Seminovos, 0)
+              return (
+                <div className="audience-stat" key={grupo.nome}>
+                  {index === 0 ? <UsersRound size={23} /> : <Baby size={23} />}
+                  <div>
+                    <span>Público {grupo.nome}</span>
+                    <strong>{formatNumber(total)}</strong>
+                    <small>{formatPercent(totalFaixas > 0 ? total / totalFaixas * 100 : 0)} dos classificados</small>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={comparativos.faixa} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+              <XAxis dataKey="nome" tick={{ fontSize: 11, fill: 'var(--chart-text)' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--chart-text)' }} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="Novos" fill="#3b82f6" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="Seminovos" fill="#ec4899" radius={[5, 5, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
