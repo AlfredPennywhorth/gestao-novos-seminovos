@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -18,7 +18,7 @@ export default function ApresentacaoPage() {
   const [loading, setLoading] = useState(true)
   const [now] = useState(new Date())
 
-  const fetch = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     const ano = now.getFullYear()
     const params = {
@@ -34,9 +34,9 @@ export default function ApresentacaoPage() {
     setSerie(s)
     setPorSetor(st.slice(0, 6))
     setLoading(false)
-  }
+  }, [now])
 
-  useEffect(() => { fetch() }, [])
+  useEffect(() => { fetchData() }, [fetchData])
 
   if (loading) return <LoadingPage />
 
@@ -60,7 +60,7 @@ export default function ApresentacaoPage() {
             <img src="/logo.png" alt="Logo CCB" className="h-full w-full object-contain" />
           </div>
           {/* Controles */}
-          <button onClick={fetch} className="btn-secondary btn-sm" title="Atualizar">
+          <button onClick={fetchData} className="btn-secondary btn-sm" title="Atualizar">
             <RefreshCw size={14} />
           </button>
           <button onClick={() => navigate('/')} className="btn-secondary btn-sm" title="Fechar">

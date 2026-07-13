@@ -129,7 +129,7 @@ export function competenciaToDate(competencia: string | number): Date | null {
   }
 
   // Formato "jun/2026" ou "Jun/2026"
-  const abrevMatch = raw.match(/^([a-zA-Záéíóúâêôãõç]{3})[\/-](\d{4})$/i);
+  const abrevMatch = raw.match(/^([a-zA-Záéíóúâêôãõç]{3})[/-](\d{4})$/i);
   if (abrevMatch) {
     const mesAbrev = abrevMatch[1].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const ano = parseInt(abrevMatch[2], 10);
@@ -140,7 +140,7 @@ export function competenciaToDate(competencia: string | number): Date | null {
   }
 
   // Formato "06/2026" ou "6/2026"
-  const numericMonthMatch = raw.match(/^(\d{1,2})[\/-](\d{4})$/);
+  const numericMonthMatch = raw.match(/^(\d{1,2})[/-](\d{4})$/);
   if (numericMonthMatch) {
     const mes = parseInt(numericMonthMatch[1], 10) - 1; // 0-based
     const ano = parseInt(numericMonthMatch[2], 10);
