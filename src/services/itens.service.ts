@@ -1,5 +1,9 @@
-import type { Item, InsertItem, UpdateItem } from '@/types/database'
+import type { Item, InsertItem, Setor, UpdateItem } from '@/types/database'
 import { supabase } from '@/services/supabase'
+
+export interface ItemComSetor extends Item {
+  setor: Setor | null
+}
 
 // ─────────────────────────────────────────────
 // listItens
@@ -19,6 +23,42 @@ export async function listItens(apenasAtivos = false): Promise<Item[]> {
   }
 
   return (data ?? []) as Item[]
+}
+
+export async function listItensComSetor(apenasAtivos = false): Promise<ItemComSetor[]> {
+  let query = supabase
+    .from('itens')
+    .select('*, item_setor(setor_id, ativo, setores(*))')
+    .order('nome', { ascending: true })
+
+  if (apenasAtivos) query = query.eq('ativo', true)
+
+  const { data, error } = await query
+  if (error) throw new Error('Erro ao listar itens e setores: ' + error.message)
+
+  return ((data ?? []) as unknown as Array<Item & {
+    item_setor?: Array<{ ativo: boolean; setores: Setor[] | Setor | null }>
+  }>).map((item) => {
+    const vinculo = item.item_setor?.find((v) => {
+      const setor = Array.isArray(v.setores) ? v.setores[0] : v.setores
+      return v.ativo && setor?.ativo
+    })
+    const setor = Array.isArray(vinculo?.setores) ? vinculo.setores[0] : vinculo?.setores
+    const { item_setor: _vinculos, ...base } = item
+    return { ...base, setor: setor ?? null }
+  })
+}
+
+export async function atualizarSetorItem(
+  itemId: string,
+  setorId: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('atualizar_setor_item', {
+    p_item_id: itemId,
+    p_setor_id: setorId,
+  })
+
+  return { error: error ? 'Erro ao atualizar setor do item: ' + error.message : null }
 }
 
 // ─────────────────────────────────────────────
@@ -121,16 +161,34 @@ export async function toggleActive(
 // findOrCreate
 // ─────────────────────────────────────────────
 export async function findOrCreate(
-  nome: string
+  nome: string,
+  codigo?: string | null,
+  descricao?: string | null
 ): Promise<{ item: Item; criado: boolean }> {
   const nomeTrimado = nome.trim()
+  const codigoTrimado = codigo?.trim().toUpperCase() || null
 
-  const { data: existente, error: erroBusca } = await supabase
-    .from('itens')
-    .select('*')
-    .ilike('nome', nomeTrimado)
-    .limit(1)
-    .single()
+  if (codigoTrimado) {
+    const { data: existentePorCodigo, error: erroCodigo } = await supabase
+      .from('itens')
+      .select('*')
+      .ilike('codigo', codigoTrimado)
+      .limit(1)
+      .single()
+
+    if (!erroCodigo && existentePorCodigo) {
+      return { item: existentePorCodigo as Item, criado: false }
+    }
+  }
+
+  const { data: existente, error: erroBusca } = codigoTrimado
+    ? { data: null, error: null }
+    : await supabase
+        .from('itens')
+        .select('*')
+        .ilike('nome', nomeTrimado)
+        .limit(1)
+        .single()
 
   if (!erroBusca && existente) {
     return { item: existente as Item, criado: false }
@@ -138,12 +196,30 @@ export async function findOrCreate(
 
   const { data: criado, error: erroCriacao } = await supabase
     .from('itens')
-    .insert({ nome: nomeTrimado, ativo: true })
+    .insert({
+      codigo: codigoTrimado,
+      nome: nomeTrimado,
+      descricao: descricao ?? null,
+      ativo: true,
+    })
     .select()
     .single()
 
   if (erroCriacao || !criado) {
     // Race condition — tenta novamente
+    const { data: recheckPorCodigo } = codigoTrimado
+      ? await supabase
+          .from('itens')
+          .select('*')
+          .ilike('codigo', codigoTrimado)
+          .limit(1)
+          .single()
+      : { data: null }
+
+    if (recheckPorCodigo) {
+      return { item: recheckPorCodigo as Item, criado: false }
+    }
+
     const { data: recheck } = await supabase
       .from('itens')
       .select('*')

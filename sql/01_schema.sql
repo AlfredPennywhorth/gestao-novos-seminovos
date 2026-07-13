@@ -93,6 +93,7 @@ COMMENT ON TABLE public.setores IS 'Setores / grupos de itens conforme planilha 
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.itens (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  codigo      TEXT,
   nome        TEXT NOT NULL,
   descricao   TEXT,
   unidade     TEXT NOT NULL DEFAULT 'peça',
@@ -101,7 +102,8 @@ CREATE TABLE IF NOT EXISTS public.itens (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_itens_nome ON public.itens(LOWER(nome)) WHERE ativo = TRUE;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_itens_codigo ON public.itens(UPPER(codigo)) WHERE codigo IS NOT NULL AND ativo = TRUE;
+CREATE INDEX IF NOT EXISTS idx_itens_nome ON public.itens(LOWER(nome)) WHERE ativo = TRUE;
 
 CREATE TRIGGER trg_itens_updated_at
   BEFORE UPDATE ON public.itens
