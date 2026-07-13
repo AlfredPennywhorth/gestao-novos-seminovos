@@ -25,15 +25,14 @@ interface FiltrosAuditoria {
 // ─────────────────────────────────────────────
 export async function registrar(params: RegistrarAuditoriaParams): Promise<void> {
   try {
-    const { userId, acao, tabela, registroId, dadosAnteriores, dadosNovos } = params
+    const { acao, tabela, registroId, dadosAnteriores, dadosNovos } = params
 
     await supabase.rpc('registrar_auditoria', {
-      p_usuario_id: userId,
       p_acao: acao,
-      p_tabela: tabela ?? null,
+      p_tabela_afetada: tabela ?? null,
       p_registro_id: registroId ?? null,
-      p_dados_anteriores: dadosAnteriores ? JSON.stringify(dadosAnteriores) : null,
-      p_dados_novos: dadosNovos ? JSON.stringify(dadosNovos) : null,
+      p_dados_anteriores: dadosAnteriores ?? null,
+      p_dados_novos: dadosNovos ?? null,
     })
   } catch (err) {
     // Silencia erros para não quebrar o fluxo principal

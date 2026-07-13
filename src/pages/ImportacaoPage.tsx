@@ -192,7 +192,7 @@ export default function ImportacaoPage() {
         <div>
           <h1 className="page-title">Importação de Planilha</h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            Importe saídas a partir da planilha Excel contendo a aba tblSeminovos
+            Importe saídas a partir do relatório comparativo ou da aba tblSeminovos
           </p>
         </div>
       </div>
@@ -219,6 +219,9 @@ export default function ImportacaoPage() {
 
             <div className="form-group mb-6">
               <label className="label label-required">Almoxarifado de Destino</label>
+              <p className="text-xs text-slate-400 mb-2">
+                Usado para os itens novos. Os seminovos do relatório comparativo são direcionados automaticamente pelas colunas VP, SPB e VG.
+              </p>
               {loadingAlmoxs ? (
                 <div className="text-sm text-slate-400">Carregando almoxarifados...</div>
               ) : (
@@ -299,8 +302,8 @@ export default function ImportacaoPage() {
                 </div>
               </div>
 
-              {/* Setores e itens novos */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Setores, itens e almoxarifados */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                   <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                     Setores Novos Encontrados ({preview.setoresNovos.length})
@@ -326,6 +329,19 @@ export default function ImportacaoPage() {
                     </ul>
                   )}
                 </div>
+
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    Almoxarifados no Arquivo ({preview.almoxarifadosEncontrados.length})
+                  </h3>
+                  {preview.almoxarifadosEncontrados.length === 0 ? (
+                    <span className="text-xs text-slate-400">Sem colunas de almoxarifado no arquivo</span>
+                  ) : (
+                    <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1">
+                      {preview.almoxarifadosEncontrados.map((a, i) => <li key={i}>{a}</li>)}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               {/* Inconsistências */}
@@ -342,6 +358,21 @@ export default function ImportacaoPage() {
               )}
 
               {/* Ação de gravação */}
+              {preview.avisos.length > 0 && (
+                <div className="alert alert-warning mb-6">
+                  <AlertTriangle size={18} className="shrink-0" />
+                  <div>
+                    <span className="font-semibold block">Importação permitida com ajustes posteriores:</span>
+                    <ul className="list-disc pl-4 text-xs mt-1 space-y-0.5">
+                      {preview.avisos.map((aviso, i) => <li key={i}>{aviso}</li>)}
+                    </ul>
+                    <p className="text-xs mt-2">
+                      Códigos em OUTROS: {preview.codigosNaoClassificados.join(', ')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-institutional-gray-border">
                 <button
                   className="btn-secondary"
@@ -358,7 +389,7 @@ export default function ImportacaoPage() {
                 <button
                   className="btn-primary"
                   onClick={handleConfirmar}
-                  disabled={loading}
+                  disabled={loading || preview.inconsistencias.length > 0}
                 >
                   {loading && <LoadingSpinner size="sm" />}
                   Confirmar e Gravar no Banco

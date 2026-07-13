@@ -1,16 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Edit, ToggleLeft, ToggleRight } from 'lucide-react'
-import { listItens, createItem, updateItem, toggleActive, vincularItemSetor } from '@/services/itens.service'
+import {
+  atualizarSetorItem,
+  createItem,
+  listItensComSetor,
+  toggleActive,
+  updateItem,
+  vincularItemSetor,
+} from '@/services/itens.service'
+import type { ItemComSetor } from '@/services/itens.service'
 import { listSetores } from '@/services/setores.service'
 import { useAuth } from '@/hooks/useAuth'
 import { Alert, LoadingSpinner, EmptyState, ConfirmDialog } from '@/components/ui'
-import type { Item, Setor } from '@/types/database'
+import type { Setor } from '@/types/database'
 
 export default function ItensPage() {
   const { profile } = useAuth()
   
   // Listas
-  const [items, setItems] = useState<Item[]>([])
+  const [items, setItems] = useState<ItemComSetor[]>([])
   const [setores, setSetores] = useState<Setor[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -24,10 +32,11 @@ export default function ItensPage() {
   const [unidadeVal, setUnidadeVal] = useState('peça')
   const [ativoVal, setAtivoVal] = useState(true)
   const [setorIdVal, setSetorIdVal] = useState('') // Setor para associar opcionalmente no cadastro
+  const [somenteOutros, setSomenteOutros] = useState(false)
 
   // Confirmar inativação / toggle status
   const [confirmToggleOpen, setConfirmToggleOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null)
+  const [selectedItem, setSelectedItem] = useState<ItemComSetor | null>(null)
   const [toggling, setToggling] = useState(false)
 
   // Carrega setores e itens
@@ -35,7 +44,7 @@ export default function ItensPage() {
     setLoading(true)
     setError(null)
     try {
-      const data = await listItens(false) // ativos e inativos
+      const data = await listItensComSetor(false) // ativos e inativos
       setItems(data)
     } catch {
       setError('Erro ao carregar catálogo de itens.')
@@ -59,13 +68,13 @@ export default function ItensPage() {
     setModalOpen(true)
   }
 
-  const handleOpenEdit = (i: Item) => {
+  const handleOpenEdit = (i: ItemComSetor) => {
     setEditingId(i.id)
     setNomeVal(i.nome)
     setDescVal(i.descricao ?? '')
     setUnidadeVal(i.unidade)
     setAtivoVal(i.ativo)
-    setSetorIdVal('')
+    setSetorIdVal(i.setor?.id ?? '')
     setModalOpen(true)
   }
 
@@ -88,6 +97,10 @@ export default function ItensPage() {
       if (editingId) {
         const { error } = await updateItem(editingId, dataSave)
         if (error) throw new Error(error)
+        if (setorIdVal) {
+          const { error: setorError } = await atualizarSetorItem(editingId, setorIdVal)
+          if (setorError) throw new Error(setorError)
+        }
         setSuccess('Item atualizado com sucesso!')
       } else {
         const { data: newItem, error } = await createItem(dataSave)
@@ -135,6 +148,10 @@ export default function ItensPage() {
     )
   }
 
+  const itemsVisiveis = somenteOutros
+    ? items.filter((item) => item.setor?.nome.trim().toUpperCase() === 'OUTROS')
+    : items
+
   return (
     <div className="animate-fade-in">
       <div className="page-header">
@@ -144,10 +161,18 @@ export default function ItensPage() {
             Gerencie o cadastro geral de peças e vincule-as aos setores operacionais
           </p>
         </div>
-        <button className="btn-primary btn-sm" onClick={handleOpenCreate}>
-          <Plus size={15} />
-          Cadastrar Item
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className={somenteOutros ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}
+            onClick={() => setSomenteOutros((valor) => !valor)}
+          >
+            {somenteOutros ? 'Mostrando OUTROS' : 'Filtrar OUTROS'}
+          </button>
+          <button className="btn-primary btn-sm" onClick={handleOpenCreate}>
+            <Plus size={15} />
+            Cadastrar Item
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -175,7 +200,9 @@ export default function ItensPage() {
           <table className="table">
             <thead>
               <tr>
+                <th>Código</th>
                 <th>Nome do Item</th>
+                <th>Setor</th>
                 <th>Unidade</th>
                 <th>Descrição</th>
                 <th>Status</th>
@@ -184,9 +211,15 @@ export default function ItensPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((i) => (
+              {itemsVisiveis.map((i) => (
                 <tr key={i.id} className={!i.ativo ? 'opacity-60 bg-slate-50' : ''}>
+                  <td className="font-mono text-xs text-slate-600">{i.codigo ?? '—'}</td>
                   <td className="font-medium text-slate-800">{i.nome}</td>
+                  <td>
+                    <span className={`badge ${i.setor?.nome.toUpperCase() === 'OUTROS' ? 'badge-red' : 'badge-gray'}`}>
+                      {i.setor?.nome ?? 'Sem setor'}
+                    </span>
+                  </td>
                   <td>
                     <span className="badge badge-gray">{i.unidade}</span>
                   </td>
@@ -270,21 +303,25 @@ export default function ItensPage() {
                 </div>
 
                 {/* Associação opcional com Setor (apenas no cadastro) */}
-                {!editingId && (
-                  <div className="form-group">
-                    <label className="label">Vincular a um Setor (Opcional)</label>
-                    <select
-                      className="select"
-                      value={setorIdVal}
-                      onChange={(e) => setSetorIdVal(e.target.value)}
-                    >
-                      <option value="">Nenhum setor (vincular depois)</option>
-                      {setores.map((s) => (
-                        <option key={s.id} value={s.id}>{s.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                <div className="form-group">
+                  <label className={`label ${editingId ? 'label-required' : ''}`}>Setor</label>
+                  <select
+                    className="select"
+                    value={setorIdVal}
+                    onChange={(e) => setSetorIdVal(e.target.value)}
+                    required={Boolean(editingId)}
+                  >
+                    <option value="">Nenhum setor</option>
+                    {setores.map((s) => (
+                      <option key={s.id} value={s.id}>{s.nome}</option>
+                    ))}
+                  </select>
+                  {editingId && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      A alteração será usada nas próximas importações deste código.
+                    </p>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-2 mt-2">
                   <input

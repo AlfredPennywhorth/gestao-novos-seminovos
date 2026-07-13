@@ -24,7 +24,21 @@ export default function PrivateRoute({ children, roles }: PrivateRouteProps) {
     return <Navigate to="/login" replace />
   }
 
-  if (roles && profile && !roles.includes(profile.role)) {
+  // An authenticated session without an active profile is never authorized.
+  if (!profile || !profile.ativo) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="card text-center max-w-md">
+          <h2 className="text-lg font-bold text-alert-red mb-2">Acesso indisponível</h2>
+          <p className="text-slate-500 text-sm">
+            Seu perfil está inativo ou não pôde ser carregado. Contate o administrador.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (roles && !roles.includes(profile.role)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="card text-center max-w-md">

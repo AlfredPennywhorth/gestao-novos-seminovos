@@ -63,6 +63,7 @@ export interface Setor {
 
 export interface Item {
   id: string;
+  codigo: string | null;
   nome: string;
   descricao: string | null;
   unidade: string;
@@ -148,7 +149,9 @@ export interface Auditoria {
 export type ProfileInsert = Omit<Profile, 'id' | 'created_at' | 'updated_at'>;
 export type AlmoxarifadoInsert = Omit<Almoxarifado, 'id' | 'created_at' | 'updated_at'>;
 export type SetorInsert = Omit<Setor, 'id' | 'created_at' | 'updated_at'>;
-export type ItemInsert = Omit<Item, 'id' | 'created_at' | 'updated_at'>;
+export type ItemInsert = Omit<Item, 'id' | 'created_at' | 'updated_at' | 'codigo'> & {
+  codigo?: string | null;
+};
 export type ItemSetorInsert = Omit<ItemSetor, 'id' | 'created_at'>;
 export type CustoMensalItemInsert = Omit<CustoMensalItem, 'id' | 'created_at' | 'updated_at'>;
 export type SaidaItemInsert = Omit<SaidaItem, 'id' | 'created_at' | 'updated_at'>;

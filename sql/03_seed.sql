@@ -10,9 +10,9 @@
 INSERT INTO public.almoxarifados (nome, codigo, descricao, aceita_novos, aceita_seminovos, ativo)
 VALUES
   ('Geral',          'GRL', 'Almoxarifado padrão para dados importados sem almoxarifado específico', TRUE,  TRUE,  TRUE),
-  ('Vila Prudente',  'VPR', 'Unidade Vila Prudente',  TRUE,  TRUE,  TRUE),
-  ('Vila Guarani',   'VGU', 'Unidade Vila Guarani',   FALSE, TRUE,  TRUE),
-  ('Sapopemba',      'SAP', 'Unidade Sapopemba',      FALSE, TRUE,  TRUE),
+  ('Vila Prudente',  'VP',  'Unidade Vila Prudente',  TRUE,  TRUE,  TRUE),
+  ('Vila Guarani',   'VG',  'Unidade Vila Guarani',   FALSE, TRUE,  TRUE),
+  ('Sapopemba',      'SPB', 'Unidade Sapopemba',      FALSE, TRUE,  TRUE),
   ('Canindé',        'CAN', 'Unidade Canindé',        FALSE, TRUE,  TRUE)
 ON CONFLICT DO NOTHING;
 
@@ -26,7 +26,8 @@ VALUES
   ('FEMININO ADULTO',                 'Roupas e itens femininos adultos',           TRUE),
   ('FEMININO INFANTIL',               'Roupas e itens femininos infantis',          TRUE),
   ('MASCULINO ADULTO',                'Roupas e itens masculinos adultos',          TRUE),
-  ('MASCULINO INFANTIL',              'Roupas e itens masculinos infantis',         TRUE)
+  ('MASCULINO INFANTIL',              'Roupas e itens masculinos infantis',         TRUE),
+  ('OUTROS',                          'Itens aguardando classificação manual',       TRUE)
 ON CONFLICT DO NOTHING;
 
 -- =============================================================================
