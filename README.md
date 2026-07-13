@@ -34,6 +34,20 @@ npm run dev
 npm run build
 ```
 
+### Deploy no Netlify
+
+O deploy de produção é executado automaticamente pelo GitHub Actions a cada push na branch `main`.
+O workflow também pode ser iniciado manualmente pela aba **Actions** do repositório.
+
+Secrets necessários no ambiente GitHub `production`:
+
+- `NETLIFY_AUTH_TOKEN`
+- `NETLIFY_SITE_ID`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+As regras de build e redirecionamento para a SPA estão em `netlify.toml`.
+
 ---
 
 ## 🗄️ Estruturação do Banco de Dados (Supabase)
