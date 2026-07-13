@@ -11,7 +11,15 @@
 -- Pode ser executado novamente sem duplicar registros.
 -- =============================================================================
 
-BEGIN;
+DO $migracao$
+BEGIN
+
+-- O editor SQL do Supabase pode confirmar cada instrução separadamente.
+-- Por isso, as tabelas temporárias são limpas explicitamente, sem ON COMMIT DROP.
+DROP TABLE IF EXISTS tmp_saidas_consolidadas;
+DROP TABLE IF EXISTS tmp_item_destino;
+DROP TABLE IF EXISTS tmp_classificacao_codigo;
+DROP TABLE IF EXISTS tmp_setores_legados;
 
 INSERT INTO public.setores (nome, descricao, ativo)
 VALUES
@@ -22,7 +30,7 @@ VALUES
   ('OUTROS', 'Itens aguardando classificação manual', TRUE)
 ON CONFLICT DO NOTHING;
 
-CREATE TEMP TABLE tmp_setores_legados ON COMMIT DROP AS
+CREATE TEMP TABLE tmp_setores_legados AS
 SELECT id, UPPER(TRIM(nome)) AS nome
 FROM public.setores
 WHERE UPPER(TRIM(nome)) IN (
@@ -34,7 +42,7 @@ WHERE UPPER(TRIM(nome)) IN (
 CREATE TEMP TABLE tmp_classificacao_codigo (
   codigo TEXT PRIMARY KEY,
   setor_nome TEXT NOT NULL
-) ON COMMIT DROP;
+);
 
 INSERT INTO tmp_classificacao_codigo (codigo, setor_nome)
 SELECT codigo, 'BEBÊ'
@@ -53,7 +61,7 @@ FROM unnest(ARRAY[
   'C06-R', 'C06-R-SC', 'C07', 'C08-B', 'C08-C', 'C08-S', 'D36'
 ]::TEXT[]) AS codigo;
 
-CREATE TEMP TABLE tmp_item_destino ON COMMIT DROP AS
+CREATE TEMP TABLE tmp_item_destino AS
 WITH itens_legados AS (
   SELECT vinculo.item_id, legado.nome
   FROM public.item_setor vinculo
@@ -91,7 +99,7 @@ JOIN public.setores destino
  AND destino.ativo = TRUE;
 
 -- Agrupa todas as saídas legadas pela chave única que terão após a migração.
-CREATE TEMP TABLE tmp_saidas_consolidadas ON COMMIT DROP AS
+CREATE TEMP TABLE tmp_saidas_consolidadas AS
 SELECT
   saida.competencia,
   saida.almoxarifado_id,
@@ -187,7 +195,13 @@ WHERE UPPER(TRIM(setor.nome)) IN (
   )
   AND setor.ativo = TRUE;
 
-COMMIT;
+DROP TABLE IF EXISTS tmp_saidas_consolidadas;
+DROP TABLE IF EXISTS tmp_item_destino;
+DROP TABLE IF EXISTS tmp_classificacao_codigo;
+DROP TABLE IF EXISTS tmp_setores_legados;
+
+END;
+$migracao$;
 
 -- Verificação esperada: somente os nomes canônicos devem permanecer ativos.
 SELECT nome, ativo
