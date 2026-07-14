@@ -550,6 +550,36 @@ function classificacaoDaLinha(
   }
 }
 
+function consolidarSaidasDuplicadas(saidas: InsertSaidaItem[]): InsertSaidaItem[] {
+  const consolidadas = new Map<string, InsertSaidaItem>()
+
+  for (const saida of saidas) {
+    const chave = JSON.stringify([
+      saida.competencia,
+      saida.almoxarifado_id ?? null,
+      saida.setor_id,
+      saida.item_id,
+      saida.tipo,
+      saida.lote_importacao_id ?? null,
+    ])
+    const existente = consolidadas.get(chave)
+
+    if (!existente) {
+      consolidadas.set(chave, { ...saida })
+      continue
+    }
+
+    existente.quantidade += saida.quantidade
+    if (saida.observacao && !existente.observacao?.includes(saida.observacao)) {
+      existente.observacao = [existente.observacao, saida.observacao]
+        .filter(Boolean)
+        .join('; ')
+    }
+  }
+
+  return Array.from(consolidadas.values())
+}
+
 export async function gerarPreview(
   linhas: LinhaExcel[],
   almoxarifadoId: string
@@ -715,9 +745,10 @@ export async function confirmarImportacao(
       else totalSeminovo += linha.quantidade
     }
 
+    const saidasConsolidadas = consolidarSaidasDuplicadas(saidas)
     const chunkSize = 500
-    for (let i = 0; i < saidas.length; i += chunkSize) {
-      const chunk = saidas.slice(i, i + chunkSize)
+    for (let i = 0; i < saidasConsolidadas.length; i += chunkSize) {
+      const chunk = saidasConsolidadas.slice(i, i + chunkSize)
       const { error: erroSaidas } = await createSaidasLote(chunk)
       if (erroSaidas) throw new Error(erroSaidas)
     }
@@ -728,8 +759,8 @@ export async function confirmarImportacao(
         status: 'CONCLUIDO',
         total_qtd_novo: totalNovo,
         total_qtd_seminovo: totalSeminovo,
-        total_registros_novo: saidas.filter((s) => s.tipo === TipoSaida.NOVO).length,
-        total_registros_seminovo: saidas.filter((s) => s.tipo === TipoSaida.SEMINOVO).length,
+        total_registros_novo: saidasConsolidadas.filter((s) => s.tipo === TipoSaida.NOVO).length,
+        total_registros_seminovo: saidasConsolidadas.filter((s) => s.tipo === TipoSaida.SEMINOVO).length,
         concluido_em: new Date().toISOString(),
       })
       .eq('id', loteId)
