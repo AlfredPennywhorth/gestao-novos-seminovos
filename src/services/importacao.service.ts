@@ -234,6 +234,15 @@ function detectarCabecalhoComparativo(row: unknown[]): LayoutComparativo | null 
   return { codigoCol, itemCol, novosCol }
 }
 
+function isCabecalhoAlmoxarifado(valor: unknown): boolean {
+  const chave = chaveTexto(normalizarTexto(valor))
+  if (!chave) return false
+
+  return Object.entries(ALMOXARIFADO_ALIASES).some(([codigo, aliases]) =>
+    chave === chaveTexto(codigo) || aliases.some((alias) => chave === chaveTexto(alias)),
+  )
+}
+
 function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string): LinhaExcel[] {
   const competencia = extrairCompetenciaDoArquivo(workbook, nomeArquivo)
   const periodo = competencia.slice(0, 7)
@@ -261,11 +270,10 @@ function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string)
         almoxarifadoCols = []
 
         const lerAlmoxarifados = (cabecalho: unknown[]) => {
-          for (let col = layoutDetectado.novosCol + 1; col < Math.min(cabecalho.length, 12); col++) {
+          for (let col = 0; col < Math.min(cabecalho.length, 12); col++) {
+            if (!isCabecalhoAlmoxarifado(cabecalho[col])) continue
             const codigo = normalizarCodigo(cabecalho[col])
-            if (codigo && !['TOTAL', 'TOTAL SEMINOVOS'].includes(chaveTexto(codigo))) {
-              almoxarifadoCols.push({ col, codigo })
-            }
+            if (codigo) almoxarifadoCols.push({ col, codigo })
           }
         }
 
