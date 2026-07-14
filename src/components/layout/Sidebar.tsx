@@ -122,7 +122,7 @@ function NavGroup({
 
 export default function Sidebar({ open, onClose, role }: SidebarProps) {
   return (
-    <aside className={`sidebar transition-transform duration-200 ${open ? 'translate-x-0' : ''}`}>
+    <aside className={`sidebar transition-transform duration-200 ${open ? 'open' : ''}`}>
       {/* Cabeçalho do sidebar */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-institutional-gray-border">
         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
