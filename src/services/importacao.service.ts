@@ -552,15 +552,18 @@ function classificacaoDaLinha(
 
 function consolidarSaidasDuplicadas(saidas: InsertSaidaItem[]): InsertSaidaItem[] {
   const consolidadas = new Map<string, InsertSaidaItem>()
+  const uuidNulo = '00000000-0000-0000-0000-000000000000'
+  const normalizarUuid = (valor: string | null | undefined) =>
+    valor?.trim().toLowerCase() || uuidNulo
 
   for (const saida of saidas) {
     const chave = JSON.stringify([
-      saida.competencia,
-      saida.almoxarifado_id ?? null,
-      saida.setor_id,
-      saida.item_id,
-      saida.tipo,
-      saida.lote_importacao_id ?? null,
+      String(saida.competencia).slice(0, 10),
+      normalizarUuid(saida.almoxarifado_id),
+      normalizarUuid(saida.setor_id),
+      normalizarUuid(saida.item_id),
+      String(saida.tipo).trim().toUpperCase(),
+      normalizarUuid(saida.lote_importacao_id),
     ])
     const existente = consolidadas.get(chave)
 

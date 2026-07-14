@@ -155,7 +155,10 @@ export async function createSaidasLote(
     .select()
 
   if (error) {
-    return { data: null, error: 'Erro ao inserir saídas em lote: ' + error.message, total: 0 }
+    const detalhes = [error.message, error.details, error.hint]
+      .filter(Boolean)
+      .join(' | ')
+    return { data: null, error: 'Erro ao inserir saídas em lote: ' + detalhes, total: 0 }
   }
 
   return { data: (data ?? []) as SaidaItem[], error: null, total: data?.length ?? 0 }
