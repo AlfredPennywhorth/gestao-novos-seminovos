@@ -150,6 +150,16 @@ function validarArquivo(file: File): void {
   }
 }
 
+function normalizarMesCompetencia(valor: string): string | null {
+  const numero = Number(valor)
+  if (Number.isInteger(numero) && numero >= 1 && numero <= 12) {
+    return String(numero).padStart(2, '0')
+  }
+
+  const abreviacao = chaveTexto(valor).slice(0, 3)
+  return Object.entries(MESES_PT).find(([nome]) => chaveTexto(nome).startsWith(abreviacao))?.[1] ?? null
+}
+
 function extrairCompetenciaDoArquivo(workbook: XLSX.WorkBook, nomeArquivo: string): string {
   for (const sheetName of workbook.SheetNames) {
     const rows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], {
@@ -161,6 +171,15 @@ function extrairCompetenciaDoArquivo(workbook: XLSX.WorkBook, nomeArquivo: strin
     for (const row of rows.slice(0, 15)) {
       for (const cell of row) {
         const texto = normalizarTexto(cell)
+        const matchPeriodoFlexivel = texto.match(
+          /Per[^:]*?(?::|de)?\s*\d{1,2}\/(?:[A-Za-z\u00c0-\u024f]+|\d{1,2})(?:\/\d{2,4})?\s*a\s*\d{1,2}\/([A-Za-z\u00c0-\u024f]+|\d{1,2})\/(\d{2,4})/i,
+        )
+        if (matchPeriodoFlexivel) {
+          const mes = normalizarMesCompetencia(matchPeriodoFlexivel[1])
+          const anoRaw = matchPeriodoFlexivel[2]
+          const ano = anoRaw.length === 2 ? `20${anoRaw}` : anoRaw
+          if (mes) return `${ano}-${mes}-01`
+        }
         const matchPeriodo = texto.match(/Per[ií]odo:\s*\d{1,2}\/(\d{1,2})(?:\/\d{2,4})?\s*a\s*\d{1,2}\/(\d{1,2})\/(\d{2,4})/i)
         if (matchPeriodo) {
           const mes = matchPeriodo[2].padStart(2, '0')
@@ -189,9 +208,23 @@ function extrairCompetenciaDoArquivo(workbook: XLSX.WorkBook, nomeArquivo: strin
 }
 
 function isCabecalhoComparativo(row: unknown[]): boolean {
-  return chaveTexto(normalizarTexto(row[0])) === 'CODIGO' &&
-    chaveTexto(normalizarTexto(row[1])) === 'ITEM' &&
-    chaveTexto(normalizarTexto(row[2])) === 'NOVOS'
+  return detectarCabecalhoComparativo(row) !== null
+}
+
+interface LayoutComparativo {
+  codigoCol: number
+  itemCol: number
+  novosCol: number
+}
+
+function detectarCabecalhoComparativo(row: unknown[]): LayoutComparativo | null {
+  const chaves = row.slice(0, 12).map((valor) => chaveTexto(normalizarTexto(valor)))
+  const codigoCol = chaves.findIndex((valor) => valor === 'CODIGO')
+  const itemCol = chaves.findIndex((valor) => valor === 'ITEM' || valor === 'DESCRICAO')
+  const novosCol = chaves.findIndex((valor) => valor === 'NOVOS')
+
+  if (codigoCol < 0 || itemCol < 0 || novosCol < 0) return null
+  return { codigoCol, itemCol, novosCol }
 }
 
 function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string): LinhaExcel[] {
@@ -208,39 +241,53 @@ function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string)
     })
 
     let setorAtual = ''
+    let layout: LayoutComparativo | null = null
     let almoxarifadoCols: Array<{ col: number; codigo: string }> = []
 
     for (let index = 0; index < rows.length; index++) {
       const row = rows[index]
-      const colA = normalizarTexto(row[0])
-      const colB = normalizarTexto(row[1])
+      const layoutDetectado = detectarCabecalhoComparativo(row)
 
-      if (isCabecalhoComparativo(row)) {
-        const subHeader = rows[index + 1] ?? []
+      if (layoutDetectado) {
+        layout = layoutDetectado
+        setorAtual ||= SETOR_OUTROS
         almoxarifadoCols = []
-        for (let col = 3; col < Math.min(subHeader.length, 12); col++) {
-          const codigo = normalizarCodigo(subHeader[col])
-          if (codigo && codigo !== 'TOTAL SEMINOVOS') {
-            almoxarifadoCols.push({ col, codigo })
+
+        const lerAlmoxarifados = (cabecalho: unknown[]) => {
+          for (let col = layoutDetectado.novosCol + 1; col < Math.min(cabecalho.length, 12); col++) {
+            const codigo = normalizarCodigo(cabecalho[col])
+            if (codigo && !['TOTAL', 'TOTAL SEMINOVOS'].includes(chaveTexto(codigo))) {
+              almoxarifadoCols.push({ col, codigo })
+            }
           }
         }
+
+        lerAlmoxarifados(row)
+        if (almoxarifadoCols.length === 0) lerAlmoxarifados(rows[index + 1] ?? [])
         continue
       }
 
-      if (colA && !colB && !normalizarCodigo(row[2]) && !isCabecalhoComparativo(row)) {
-        const setor = normalizarSetor(colA)
+      if (!layout) continue
+
+      const codigoTexto = normalizarTexto(row[layout.codigoCol])
+      const itemTexto = normalizarTexto(row[layout.itemCol])
+      const colunasQuantidade = [layout.novosCol, ...almoxarifadoCols.map((almox) => almox.col)]
+      const possuiQuantidade = colunasQuantidade.some((col) => normalizarTexto(row[col]) !== '')
+
+      if (!possuiQuantidade && ((codigoTexto && !itemTexto) || (!codigoTexto && itemTexto))) {
+        const setor = normalizarSetor(itemTexto || codigoTexto)
         if (setor && !['TOTAL', 'NOVOS', 'SEMINOVOS'].includes(chaveTexto(setor))) {
           setorAtual = setor
         }
         continue
       }
 
-      const codigo = normalizarCodigo(row[0])
-      const itemOriginal = normalizarTexto(row[1])
-      if (!codigo || !itemOriginal || !setorAtual || isCabecalhoComparativo(row)) continue
+      const codigo = normalizarCodigo(row[layout.codigoCol])
+      const itemOriginal = normalizarTexto(row[layout.itemCol])
+      if (!codigo || !itemOriginal || !setorAtual) continue
 
       const item = sanitizarNomeItem(itemOriginal, setorAtual)
-      const novos = parseQuantidade(row[2])
+      const novos = parseQuantidade(row[layout.novosCol])
       if (Number.isNaN(novos)) {
         throw new Error(`Linha ${index + 1}: quantidade de novos inválida para o item ${codigo}.`)
       }
