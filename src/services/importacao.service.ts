@@ -37,6 +37,7 @@ export interface ResultadoImportacao {
   inconsistencias: string[]
   avisos: string[]
   codigosNaoClassificados: string[]
+  competenciasDetectadas: string[]
   economiaEstimada: number
 }
 
@@ -643,6 +644,7 @@ export async function gerarPreview(
   const itensVistos = new Set<string>()
   const almoxarifadosEncontradosSet = new Set<string>()
   const codigosNaoClassificadosSet = new Set<string>()
+  const competenciasDetectadasSet = new Set<string>()
 
   const { data: setoresExistentes } = await supabase.from('setores').select('nome')
   const { data: itensExistentes } = await supabase.from('itens').select('nome,codigo')
@@ -669,7 +671,7 @@ export async function gerarPreview(
     }
 
     try {
-      normalizarMesAno(linha.mesAno)
+      competenciasDetectadasSet.add(normalizarMesAno(linha.mesAno))
     } catch {
       inconsistencias.push(`Linha ${linha.linhaOrigem}: data inválida (${linha.mesAno}).`)
     }
@@ -727,6 +729,7 @@ export async function gerarPreview(
     inconsistencias,
     avisos,
     codigosNaoClassificados,
+    competenciasDetectadas: Array.from(competenciasDetectadasSet).sort(),
     economiaEstimada: totalQtdSeminovo * 36,
   }
 }

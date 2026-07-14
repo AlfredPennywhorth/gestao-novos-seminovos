@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Upload, AlertTriangle, Trash2, Calendar, FileSpreadsheet } from 'lucide-react'
+import { Upload, AlertTriangle, Trash2, Calendar, CalendarCheck, FileSpreadsheet } from 'lucide-react'
 import { parseExcel, gerarPreview, confirmarImportacao, verificarDuplicidade, desfazerLote } from '@/services/importacao.service'
 import type { LinhaExcel, ResultadoImportacao } from '@/services/importacao.service'
 import { useAlmoxarifados } from '@/hooks/useAlmoxarifados'
 import { useAuth } from '@/hooks/useAuth'
-import { formatCurrency, formatNumber } from '@/utils/formatters'
+import { formatCompetencia, formatCurrency, formatNumber } from '@/utils/formatters'
 import { Alert, LoadingSpinner, ConfirmDialog } from '@/components/ui'
 import type { Almoxarifado } from '@/types/database'
 import { supabase } from '@/services/supabase'
@@ -281,6 +281,30 @@ export default function ImportacaoPage() {
                     Nome de arquivo já importado
                   </span>
                 )}
+              </div>
+
+              <div className={`mb-6 rounded-xl border p-4 flex items-start gap-3 ${
+                preview.competenciasDetectadas.length === 1
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-amber-50 border-amber-200'
+              }`}>
+                <CalendarCheck
+                  size={24}
+                  className={preview.competenciasDetectadas.length === 1 ? 'text-economy-green shrink-0' : 'text-amber-600 shrink-0'}
+                />
+                <div>
+                  <span className={`text-xs font-semibold uppercase tracking-wider block ${
+                    preview.competenciasDetectadas.length === 1 ? 'text-economy-green' : 'text-amber-700'
+                  }`}>
+                    {preview.competenciasDetectadas.length === 1 ? 'Competência confirmada' : 'Competências detectadas'}
+                  </span>
+                  <strong className="text-xl text-institutional-blue block mt-0.5">
+                    {preview.competenciasDetectadas.map(formatCompetencia).join(', ')}
+                  </strong>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Confira o mês e o ano antes de confirmar a gravação no banco.
+                  </p>
+                </div>
               </div>
 
               {/* Grid de totais da prévia */}
