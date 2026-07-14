@@ -97,8 +97,14 @@ function parseQuantidade(valor: unknown): number {
     return Math.trunc(valor)
   }
 
-  const texto = String(valor).trim().replace(/\./g, '').replace(',', '.')
-  if (!texto) return 0
+  const textoOriginal = normalizarTexto(valor)
+  const marcadorVazio = chaveTexto(textoOriginal)
+  if (
+    !textoOriginal ||
+    ['-', '–', '—', 'N/A', 'NA', 'S/MOVIMENTO', 'SEM MOVIMENTO'].includes(marcadorVazio)
+  ) return 0
+
+  const texto = textoOriginal.replace(/\./g, '').replace(',', '.')
   const numero = Number(texto)
   if (!Number.isFinite(numero) || numero < 0) return Number.NaN
   return Math.trunc(numero)
@@ -290,7 +296,10 @@ function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string)
       const item = sanitizarNomeItem(itemOriginal, setorAtual)
       const novos = parseQuantidade(row[layout.novosCol])
       if (Number.isNaN(novos)) {
-        throw new Error(`Linha ${index + 1}: quantidade de novos inválida para o item ${codigo}.`)
+        const valorRecebido = normalizarTexto(row[layout.novosCol]) || 'em branco'
+        throw new Error(
+          `Linha ${index + 1}: quantidade inválida para NOVOS no item ${codigo}. Valor recebido: "${valorRecebido}".`,
+        )
       }
 
       if (novos > 0) {
@@ -312,7 +321,10 @@ function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string)
       for (const almox of almoxarifadoCols) {
         const quantidade = parseQuantidade(row[almox.col])
         if (Number.isNaN(quantidade)) {
-          throw new Error(`Linha ${index + 1}: quantidade inválida para ${almox.codigo} no item ${codigo}.`)
+          const valorRecebido = normalizarTexto(row[almox.col]) || 'em branco'
+          throw new Error(
+            `Linha ${index + 1}: quantidade inválida para ${almox.codigo} no item ${codigo}. Valor recebido: "${valorRecebido}".`,
+          )
         }
         if (quantidade <= 0) continue
 
