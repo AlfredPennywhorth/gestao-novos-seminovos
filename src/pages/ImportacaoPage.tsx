@@ -169,8 +169,10 @@ export default function ImportacaoPage() {
     if (!loteParaDesfazer || !user) return
 
     setUndoing(true)
+    setError(null)
+    setSuccess(null)
     try {
-      const { error } = await desfazerLote(loteParaDesfazer, user.id)
+      const { error } = await desfazerLote(loteParaDesfazer)
       if (error) throw new Error(error)
 
       setSuccess('O lote de importação foi desfeito e todos os lançamentos vinculados foram removidos.')
@@ -179,6 +181,8 @@ export default function ImportacaoPage() {
       fetchLotes()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao desfazer lote.')
+      setConfirmUndoOpen(false)
+      setLoteParaDesfazer(null)
     } finally {
       setUndoing(false)
     }
@@ -473,7 +477,7 @@ export default function ImportacaoPage() {
         open={confirmUndoOpen}
         title="Desfazer Lote de Importação"
         description="Esta ação é irreversível. Todos os lançamentos de saídas associados a este lote serão permanentemente excluídos do banco de dados e a economia recalculada. Deseja continuar?"
-        confirmLabel="Sim, Desfazer"
+        confirmLabel={undoing ? 'Desfazendo...' : 'Sim, Desfazer'}
         cancelLabel="Voltar"
         onConfirm={handleDesfazerLote}
         onCancel={() => {

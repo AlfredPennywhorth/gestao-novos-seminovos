@@ -172,7 +172,7 @@ function extrairCompetenciaDoArquivo(workbook: XLSX.WorkBook, nomeArquivo: strin
       for (const cell of row) {
         const texto = normalizarTexto(cell)
         const matchPeriodoFlexivel = texto.match(
-          /Per[^:]*?(?::|de)?\s*\d{1,2}\/(?:[A-Za-z\u00c0-\u024f]+|\d{1,2})(?:\/\d{2,4})?\s*a\s*\d{1,2}\/([A-Za-z\u00c0-\u024f]+|\d{1,2})\/(\d{2,4})/i,
+          /Per[ií]odo\s*:?\s*\d{1,2}\/(?:[A-Za-z\u00c0-\u024f]+|\d{1,2})(?:\/\d{2,4})?\s*(?:a|á|à)\s*\d{1,2}\/([A-Za-z\u00c0-\u024f]+|\d{1,2})\/(\d{2,4})\b/i,
         )
         if (matchPeriodoFlexivel) {
           const mes = normalizarMesCompetencia(matchPeriodoFlexivel[1])
@@ -188,12 +188,12 @@ function extrairCompetenciaDoArquivo(workbook: XLSX.WorkBook, nomeArquivo: strin
           return `${ano}-${mes}-01`
         }
 
-        const matchMesAno = texto.match(/Per[ií]odo:.*?(\d{1,2})\/(\d{2,4})/i)
+        const matchMesAno = texto.match(
+          /Per[ií]odo\s*:?\s*(?:de\s+)?([A-Za-z\u00c0-\u024f]+|\d{1,2})[./-](\d{4})\b/i,
+        )
         if (matchMesAno) {
-          const mes = matchMesAno[1].padStart(2, '0')
-          const anoRaw = matchMesAno[2]
-          const ano = anoRaw.length === 2 ? `20${anoRaw}` : anoRaw
-          return `${ano}-${mes}-01`
+          const mes = normalizarMesCompetencia(matchMesAno[1])
+          if (mes) return `${matchMesAno[2]}-${mes}-01`
         }
       }
     }
@@ -803,7 +803,7 @@ export async function confirmarImportacao(
       if (erroSaidas) throw new Error(erroSaidas)
     }
 
-    await supabase
+    const { data: loteConcluido, error: erroConclusao } = await supabase
       .from('lotes_importacao')
       .update({
         status: 'CONCLUIDO',
@@ -811,9 +811,17 @@ export async function confirmarImportacao(
         total_qtd_seminovo: totalSeminovo,
         total_registros_novo: saidasConsolidadas.filter((s) => s.tipo === TipoSaida.NOVO).length,
         total_registros_seminovo: saidasConsolidadas.filter((s) => s.tipo === TipoSaida.SEMINOVO).length,
-        concluido_em: new Date().toISOString(),
       })
       .eq('id', loteId)
+      .select('id')
+      .maybeSingle()
+
+    if (erroConclusao) {
+      throw new Error('As saídas foram inseridas, mas o lote não pôde ser finalizado: ' + erroConclusao.message)
+    }
+    if (!loteConcluido) {
+      throw new Error('As saídas foram inseridas, mas o lote não pôde ser finalizado. Verifique as permissões do usuário.')
+    }
 
     return { loteId }
   } catch (err) {
@@ -849,27 +857,47 @@ export async function verificarDuplicidade(
 }
 
 export async function desfazerLote(
-  loteId: string,
-  userId: string
+  loteId: string
 ): Promise<{ data: LoteImportacao | null; error: string | null }> {
-  const { error: erroDelete } = await supabase
+  const { count: totalVinculado, error: erroContagem } = await supabase
+    .from('saidas_itens')
+    .select('id', { count: 'exact', head: true })
+    .eq('lote_importacao_id', loteId)
+
+  if (erroContagem) {
+    return { data: null, error: 'Erro ao localizar saídas do lote: ' + erroContagem.message }
+  }
+
+  const { data: saidasRemovidas, error: erroDelete } = await supabase
     .from('saidas_itens')
     .delete()
     .eq('lote_importacao_id', loteId)
+    .select('id')
 
   if (erroDelete) {
     return { data: null, error: 'Erro ao remover saídas do lote: ' + erroDelete.message }
   }
 
+  if ((totalVinculado ?? 0) > 0 && (saidasRemovidas?.length ?? 0) !== totalVinculado) {
+    return {
+      data: null,
+      error: `A exclusão não foi concluída: ${saidasRemovidas?.length ?? 0} de ${totalVinculado} registros foram removidos. Verifique as permissões do usuário.`,
+    }
+  }
+
   const { data: loteAtualizado, error: erroLote } = await supabase
     .from('lotes_importacao')
-    .update({ status: 'DESFEITO', desfeito_por: userId, desfeito_em: new Date().toISOString() })
+    .update({ status: 'DESFEITO' })
     .eq('id', loteId)
     .select()
-    .single()
+    .maybeSingle()
 
   if (erroLote) {
     return { data: null, error: 'Erro ao atualizar status do lote: ' + erroLote.message }
+  }
+
+  if (!loteAtualizado) {
+    return { data: null, error: 'O lote não pôde ser marcado como desfeito. Verifique as permissões do usuário.' }
   }
 
   Promise.resolve(
