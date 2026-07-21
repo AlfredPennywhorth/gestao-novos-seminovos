@@ -6,6 +6,9 @@ import AuthLayout from '@/components/layout/AuthLayout'
 
 // Páginas principais
 import LoginPage from '@/pages/LoginPage'
+import CadastroPage from '@/pages/CadastroPage'
+import RecuperarSenhaPage from '@/pages/RecuperarSenhaPage'
+import ResetarSenhaPage from '@/pages/ResetarSenhaPage'
 import DashboardPage from '@/pages/DashboardPage'
 import LancamentosPage from '@/pages/LancamentosPage'
 import ImportacaoPage from '@/pages/ImportacaoPage'
@@ -28,6 +31,9 @@ export default function App() {
           {/* Rotas públicas */}
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/cadastro" element={<CadastroPage />} />
+            <Route path="/recuperar-senha" element={<RecuperarSenhaPage />} />
+            <Route path="/resetar-senha" element={<ResetarSenhaPage />} />
           </Route>
 
           {/* Modo Apresentação — sem sidebar */}

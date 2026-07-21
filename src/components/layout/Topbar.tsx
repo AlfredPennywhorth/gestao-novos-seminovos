@@ -1,4 +1,4 @@
-import { Menu, LogOut, Moon, Presentation, Sun } from 'lucide-react'
+import { Menu, LogOut, Moon, Presentation, Sun, Key } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { Profile } from '@/types/database'
 
@@ -8,9 +8,10 @@ interface TopbarProps {
   profile: Profile | null
   darkMode: boolean
   onThemeToggle: () => void
+  onChangePassword: () => void
 }
 
-export default function Topbar({ onMenuToggle, onSignOut, profile, darkMode, onThemeToggle }: TopbarProps) {
+export default function Topbar({ onMenuToggle, onSignOut, profile, darkMode, onThemeToggle, onChangePassword }: TopbarProps) {
   const navigate = useNavigate()
 
   return (
@@ -43,6 +44,15 @@ export default function Topbar({ onMenuToggle, onSignOut, profile, darkMode, onT
           aria-label={darkMode ? 'Usar tema claro' : 'Usar tema noturno'}
         >
           {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+        {/* Botão Alterar Senha */}
+        <button
+          onClick={onChangePassword}
+          className="btn-icon text-white/80 hover:text-white hover:bg-white/10"
+          title="Alterar Senha"
+          aria-label="Alterar Senha"
+        >
+          <Key size={18} />
         </button>
         {/* Botão Modo Apresentação */}
         <button

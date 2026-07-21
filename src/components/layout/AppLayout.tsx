@@ -3,9 +3,11 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
+import AlterarSenhaModal from './AlterarSenhaModal'
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
   const { signOut, profile } = useAuth()
   const navigate = useNavigate()
@@ -29,6 +31,7 @@ export default function AppLayout() {
         profile={profile}
         darkMode={darkMode}
         onThemeToggle={() => setDarkMode(value => !value)}
+        onChangePassword={() => setChangePasswordOpen(true)}
       />
       <Sidebar
         open={sidebarOpen}
@@ -50,6 +53,10 @@ export default function AppLayout() {
           <Outlet />
         </div>
       </main>
+      <AlterarSenhaModal
+        open={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+      />
     </div>
   )
 }

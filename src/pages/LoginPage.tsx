@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { Alert, LoadingSpinner } from '@/components/ui'
 
@@ -74,9 +74,17 @@ export default function LoginPage() {
         </div>
 
         <div className="form-group">
-          <label className="label label-required" htmlFor="password">
-            Senha
-          </label>
+          <div className="flex justify-between items-center mb-1">
+            <label className="label label-required mb-0" htmlFor="password">
+              Senha
+            </label>
+            <Link
+              to="/recuperar-senha"
+              className="text-xs text-institutional-blue hover:underline font-medium"
+            >
+              Esqueceu a senha?
+            </Link>
+          </div>
           <div className="relative">
             <input
               id="password"
@@ -120,9 +128,17 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <p className="text-center text-xs text-slate-400 mt-8">
-        Primeiro acesso? Solicite ao administrador do sistema.
-      </p>
+      <div className="text-center mt-6 flex flex-col gap-2">
+        <p className="text-sm text-slate-500">
+          Não tem uma conta?{' '}
+          <Link to="/cadastro" className="text-institutional-blue hover:underline font-medium">
+            Cadastre-se
+          </Link>
+        </p>
+        <p className="text-xs text-slate-400 mt-2">
+          Se preferir, solicite o primeiro acesso ao administrador.
+        </p>
+      </div>
     </div>
   )
 }

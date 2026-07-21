@@ -20,6 +20,9 @@ interface AuthContextValue {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, nome: string) => Promise<{ error: string | null }>;
+  resetPasswordForEmail: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   isAdmin: () => boolean;
   isOperador: () => boolean;
@@ -135,6 +138,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     [],
   );
 
+  const signUp = useCallback(
+    async (email: string, password: string, nome: string): Promise<{ error: string | null }> => {
+      setLoading(true);
+      try {
+        if (import.meta.env.VITE_SUPABASE_URL?.includes('mock-project')) {
+          return { error: null };
+        }
+
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              nome,
+              role: UserRole.VISUALIZADOR,
+            },
+          },
+        });
+        if (error) return { error: error.message };
+        return { error: null };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  const resetPasswordForEmail = useCallback(
+    async (email: string): Promise<{ error: string | null }> => {
+      setLoading(true);
+      try {
+        if (import.meta.env.VITE_SUPABASE_URL?.includes('mock-project')) {
+          return { error: null };
+        }
+
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/resetar-senha`,
+        });
+        if (error) return { error: error.message };
+        return { error: null };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  const updatePassword = useCallback(
+    async (password: string): Promise<{ error: string | null }> => {
+      setLoading(true);
+      try {
+        if (import.meta.env.VITE_SUPABASE_URL?.includes('mock-project')) {
+          return { error: null };
+        }
+
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) return { error: error.message };
+        return { error: null };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
   const signOut = useCallback(async (): Promise<void> => {
     await supabase.auth.signOut();
     setUser(null);
@@ -151,12 +219,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       profile,
       loading,
       signIn,
+      signUp,
+      resetPasswordForEmail,
+      updatePassword,
       signOut,
       isAdmin,
       isOperador,
       isVisualizador,
     }),
-    [user, profile, loading, signIn, signOut, isAdmin, isOperador, isVisualizador],
+    [
+      user,
+      profile,
+      loading,
+      signIn,
+      signUp,
+      resetPasswordForEmail,
+      updatePassword,
+      signOut,
+      isAdmin,
+      isOperador,
+      isVisualizador,
+    ],
   );
 
   return React.createElement(AuthContext.Provider, { value }, children);
