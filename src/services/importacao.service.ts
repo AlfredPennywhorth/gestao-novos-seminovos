@@ -152,8 +152,21 @@ function validarArquivo(file: File): void {
   if (file.size > MAX_FILE_SIZE) {
     throw new Error('A planilha excede o limite de 10 MB.')
   }
-  if (!/\.(xlsx|xls)$/i.test(file.name)) {
+  
+  const validExtensions = /\.(xlsx|xls)$/i
+  if (!validExtensions.test(file.name)) {
     throw new Error('Formato inválido. Selecione um arquivo .xlsx ou .xls.')
+  }
+
+  // Validação extra de MIME type (se disponível) para impedir renomeação de executáveis
+  const validMimes = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel',
+    'application/octet-stream',
+    '' // vazio, caso o SO local não identifique
+  ]
+  if (file.type && !validMimes.includes(file.type)) {
+    throw new Error('Tipo de arquivo inválido. Apenas planilhas Excel são permitidas.')
   }
 }
 
@@ -483,6 +496,11 @@ export async function parseExcel(file: File): Promise<LinhaExcel[]> {
 
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: false })
+  
+  if (workbook.SheetNames.length > 10) {
+    throw new Error('A planilha excede o limite de 10 abas/planilhas.')
+  }
+
   const primeiraAba = workbook.Sheets[workbook.SheetNames[0]]
   const primeirasLinhas = XLSX.utils.sheet_to_json<unknown[]>(primeiraAba, {
     header: 1,

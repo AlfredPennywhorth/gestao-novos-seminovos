@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck, ArrowLeft, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { Alert, LoadingSpinner } from '@/components/ui'
@@ -22,7 +22,7 @@ export default function ResetarSenhaPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<boolean>(false)
-  const { updatePassword } = useAuth()
+  const { updatePassword, user, loading, signOut } = useAuth()
   const navigate = useNavigate()
 
   const {
@@ -43,6 +43,41 @@ export default function ResetarSenhaPage() {
     }
 
     setSuccess(true)
+    await signOut()
+  }
+
+  if (loading) {
+    return (
+      <div className="animate-fade-in text-center flex flex-col items-center justify-center py-12">
+        <LoadingSpinner size="lg" className="mb-4" />
+        <p className="text-slate-500 text-sm">Verificando sessão de recuperação...</p>
+      </div>
+    )
+  }
+
+  if (!user && !success) {
+    return (
+      <div className="animate-fade-in text-center">
+        <div className="mb-6 flex justify-center">
+          <div className="bg-red-50 text-red-500 p-4 rounded-full">
+            <X size={40} />
+          </div>
+        </div>
+        <h1 className="text-2xl font-bold text-institutional-blue mb-4">
+          Link inválido ou expirado
+        </h1>
+        <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+          Este link de redefinição de senha não é mais válido, já foi utilizado ou expirou. Por favor, solicite um novo link de recuperação.
+        </p>
+        <button
+          onClick={() => navigate('/login')}
+          className="btn-primary w-full flex items-center justify-center gap-2"
+        >
+          <ArrowLeft size={16} />
+          Voltar para o login
+        </button>
+      </div>
+    )
   }
 
   if (success) {

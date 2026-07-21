@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (userId: string): Promise<void> => {
+  const fetchProfile = useCallback(async (userId: string, isRecoveryFlow = false): Promise<void> => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -58,6 +58,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       const loadedProfile = data as Profile;
       if (!loadedProfile.ativo) {
         setProfile(loadedProfile);
+        if (isRecoveryFlow || window.location.pathname === '/resetar-senha') {
+          return;
+        }
         await supabase.auth.signOut();
         setUser(null);
         return;
@@ -76,7 +79,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id).finally(() => setLoading(false));
+        const isRecovery = window.location.pathname === '/resetar-senha';
+        fetchProfile(session.user.id, isRecovery).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -84,10 +88,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
 
     // Listener de mudanças na autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         setUser(session?.user ?? null);
         if (session?.user) {
-          fetchProfile(session.user.id);
+          const isRecovery = event === 'PASSWORD_RECOVERY' || window.location.pathname === '/resetar-senha';
+          fetchProfile(session.user.id, isRecovery);
         } else {
           setProfile(null);
         }
@@ -128,8 +133,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
           return { error: null };
         }
 
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) return { error: error.message };
+
+        if (data?.user) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+
+          if (!profileError && profileData) {
+            const loadedProfile = profileData as Profile;
+            if (!loadedProfile.ativo) {
+              await supabase.auth.signOut();
+              setUser(null);
+              setProfile(null);
+              return { error: 'Sua conta está inativa. Solicite a ativação ao administrador.' };
+            }
+          }
+        }
         return { error: null };
       } finally {
         setLoading(false);
