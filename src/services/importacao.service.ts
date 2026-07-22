@@ -58,6 +58,7 @@ const ALMOXARIFADO_ALIASES: Record<string, string[]> = {
   VP: ['VP', 'VPR', 'VILA PRUDENTE'],
   SPB: ['SPB', 'SAP', 'SAPOPEMBA'],
   VG: ['VG', 'VGU', 'VILA GUARANI'],
+  CND: ['CND', 'CAN', 'CANINDÉ', 'CANINDE'],
 }
 
 const MESES_PT: Record<string, string> = {
@@ -243,7 +244,7 @@ function detectarCabecalhoComparativo(row: unknown[]): LayoutComparativo | null 
   const itemCol = chaves.findIndex((valor) => valor === 'ITEM' || valor === 'DESCRICAO')
   const novosCol = chaves.findIndex((valor) => valor === 'NOVOS')
 
-  if (codigoCol < 0 || itemCol < 0 || novosCol < 0) return null
+  if (itemCol < 0 || novosCol < 0) return null
   return { codigoCol, itemCol, novosCol }
 }
 
@@ -297,29 +298,52 @@ function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string)
 
       if (!layout) continue
 
-      const codigoTexto = normalizarTexto(row[layout.codigoCol])
+      const codigoTexto = layout.codigoCol >= 0 ? normalizarTexto(row[layout.codigoCol]) : ''
       const itemTexto = normalizarTexto(row[layout.itemCol])
       const colunasQuantidade = [layout.novosCol, ...almoxarifadoCols.map((almox) => almox.col)]
       const possuiQuantidade = colunasQuantidade.some((col) => normalizarTexto(row[col]) !== '')
 
+      const itemTextoUpper = chaveTexto(itemTexto)
+      if (
+        itemTextoUpper.startsWith('SUB-TOTAL') ||
+        itemTextoUpper.startsWith('SUBTOTAL') ||
+        itemTextoUpper.startsWith('TOTAL GERAL')
+      ) {
+        continue
+      }
+
       if (!possuiQuantidade && ((codigoTexto && !itemTexto) || (!codigoTexto && itemTexto))) {
         const setor = normalizarSetor(itemTexto || codigoTexto)
-        if (setor && !['TOTAL', 'NOVOS', 'SEMINOVOS'].includes(chaveTexto(setor))) {
+        if (
+          setor &&
+          !['TOTAL', 'NOVOS', 'SEMINOVOS', 'SUB-TOTAL', 'SUBTOTAL'].some((prefix) =>
+            chaveTexto(setor).startsWith(prefix)
+          )
+        ) {
           setorAtual = setor
         }
         continue
       }
 
-      const codigo = normalizarCodigo(row[layout.codigoCol])
+      const codigo = layout.codigoCol >= 0 ? normalizarCodigo(row[layout.codigoCol]) : null
       const itemOriginal = normalizarTexto(row[layout.itemCol])
-      if (!codigo || !itemOriginal || !setorAtual) continue
+      if (!itemOriginal || !setorAtual) continue
 
       const item = sanitizarNomeItem(itemOriginal, setorAtual)
+      const itemUpper = chaveTexto(item)
+      if (
+        itemUpper.startsWith('SUB-TOTAL') ||
+        itemUpper.startsWith('SUBTOTAL') ||
+        itemUpper.startsWith('TOTAL GERAL')
+      ) {
+        continue
+      }
+
       const novos = parseQuantidade(row[layout.novosCol])
       if (Number.isNaN(novos)) {
         const valorRecebido = normalizarTexto(row[layout.novosCol]) || 'em branco'
         throw new Error(
-          `Linha ${index + 1}: quantidade inválida para NOVOS no item ${codigo}. Valor recebido: "${valorRecebido}".`,
+          `Linha ${index + 1}: quantidade inválida para NOVOS no item "${itemOriginal}". Valor recebido: "${valorRecebido}".`,
         )
       }
 
@@ -344,7 +368,7 @@ function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string)
         if (Number.isNaN(quantidade)) {
           const valorRecebido = normalizarTexto(row[almox.col]) || 'em branco'
           throw new Error(
-            `Linha ${index + 1}: quantidade inválida para ${almox.codigo} no item ${codigo}. Valor recebido: "${valorRecebido}".`,
+            `Linha ${index + 1}: quantidade inválida para ${almox.codigo} no item "${itemOriginal}". Valor recebido: "${valorRecebido}".`,
           )
         }
         if (quantidade <= 0) continue
@@ -628,11 +652,11 @@ function classificacaoDaLinha(
   linha: LinhaExcel,
   classificacoes: Map<string, ClassificacaoResolvida>
 ): ClassificacaoResolvida {
-  if (!linha.codigo) return { setor: SETOR_OUTROS, itemId: null, origem: 'OUTROS' }
+  if (!linha.codigo) return { setor: linha.setor || SETOR_OUTROS, itemId: null, origem: 'CADASTRO' }
   return classificacoes.get(chaveTexto(linha.codigo)) ?? {
-    setor: SETOR_OUTROS,
+    setor: linha.setor || SETOR_OUTROS,
     itemId: null,
-    origem: 'OUTROS',
+    origem: 'CADASTRO',
   }
 }
 

@@ -381,6 +381,42 @@ export async function getResumoPorItem(params: DashParams, limit = 10): Promise<
 
 // ─── getResumoPorAlmoxarifado ─────────────────────────────────────────────────
 export async function getResumoPorAlmoxarifado(params: DashParams): Promise<ResumoPorAlmoxarifado[]> {
+  if (import.meta.env.VITE_SUPABASE_URL?.includes('mock-project')) {
+    const data = getFilteredSeedData(params)
+    let grandTotal = 0
+    const almoxMock: Record<string, { id: string; nome: string; novos: number; seminovos: number }> = {
+      'vp': { id: 'vp', nome: 'Vila Prudente', novos: 0, seminovos: 0 },
+      'vg': { id: 'vg', nome: 'Vila Guarani', novos: 0, seminovos: 0 },
+      'spb': { id: 'spb', nome: 'Sapopemba', novos: 0, seminovos: 0 },
+      'cnd': { id: 'cnd', nome: 'Canindé', novos: 0, seminovos: 0 },
+    }
+
+    data.forEach((d) => {
+      grandTotal += d.novos + d.seminovos
+      almoxMock['vp'].novos += Math.round(d.novos * 0.55)
+      almoxMock['vp'].seminovos += Math.round(d.seminovos * 0.50)
+
+      almoxMock['vg'].novos += Math.round(d.novos * 0.25)
+      almoxMock['vg'].seminovos += Math.round(d.seminovos * 0.30)
+
+      almoxMock['spb'].novos += Math.round(d.novos * 0.12)
+      almoxMock['spb'].seminovos += Math.round(d.seminovos * 0.12)
+
+      almoxMock['cnd'].novos += Math.round(d.novos * 0.08)
+      almoxMock['cnd'].seminovos += Math.round(d.seminovos * 0.08)
+    })
+
+    return Object.values(almoxMock).map(v => ({
+      almoxarifadoId: v.id,
+      almoxarifadoNome: v.nome,
+      totalNovos: v.novos,
+      totalSeminovos: v.seminovos,
+      totalGeral: v.novos + v.seminovos,
+      economiaLiquida: v.seminovos * (CUSTO_PADRAO_NOVO - CUSTO_PADRAO_SEMINOVO),
+      percentualDoTotal: grandTotal > 0 ? ((v.novos + v.seminovos) / grandTotal) * 100 : 0,
+    }))
+  }
+
   const { data: rows } = await buildQuery(params)
   if (!rows) return []
 

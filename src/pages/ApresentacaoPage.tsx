@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import { X, RefreshCw } from 'lucide-react'
 import { getDashboardKPIs, getSerieTemporal, getResumoPorSetor } from '@/services/dashboard.service'
-import { formatCurrency, formatNumber, formatPercent, formatCompetencia } from '@/utils/formatters'
+import { formatCurrency, formatNumber, formatPercent, formatMesResumido } from '@/utils/formatters'
 import { LoadingPage } from '@/components/ui'
 import type { KPIData, SerieTemporalItem, ResumoPorSetor } from '@/types/dashboard'
 
@@ -118,7 +118,7 @@ export default function ApresentacaoPage() {
             </h2>
             <ResponsiveContainer width="100%" height={260}>
               <AreaChart data={serie.map(s => ({
-                mes: formatCompetencia(s.mes),
+                mes: formatMesResumido(s.mes),
                 Novos: s.totalNovos,
                 Seminovos: s.totalSeminovos,
                 Total: s.totalGeral,

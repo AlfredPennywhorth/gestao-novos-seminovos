@@ -9,10 +9,10 @@ import {
   BarChart2, Presentation,
   AlertCircle, RefreshCw, Filter, Award, Baby, UsersRound, Sparkles
 } from 'lucide-react'
-import { getDashboardKPIs, getSerieTemporal, getResumoPorSetor, getResumoPorItem, getTabelaAnalitica } from '@/services/dashboard.service'
+import { getDashboardKPIs, getSerieTemporal, getResumoPorSetor, getResumoPorItem, getResumoPorAlmoxarifado, getTabelaAnalitica } from '@/services/dashboard.service'
 import { useAlmoxarifados } from '@/hooks/useAlmoxarifados'
 import { useSetores } from '@/hooks/useSetores'
-import { formatCurrency, formatNumber, formatPercent, formatCompetencia } from '@/utils/formatters'
+import { formatCurrency, formatNumber, formatPercent, formatCompetencia, formatMesResumido } from '@/utils/formatters'
 import { LoadingPage, EmptyState, Alert, Pagination } from '@/components/ui'
 import type { KPIData, SerieTemporalItem, ResumoPorSetor, ResumoPorItem, FiltrosDashboard } from '@/types/dashboard'
 
@@ -212,6 +212,7 @@ export default function DashboardPage() {
   const [serie, setSerie] = useState<SerieTemporalItem[]>([])
   const [porSetor, setPorSetor] = useState<ResumoPorSetor[]>([])
   const [topItens, setTopItens] = useState<ResumoPorItem[]>([])
+  const [porAlmoxarifado, setPorAlmoxarifado] = useState<import('@/types/dashboard').ResumoPorAlmoxarifado[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [alertaCusto, setAlertaCusto] = useState(false)
@@ -245,16 +246,18 @@ export default function DashboardPage() {
     setError(null)
     try {
       const params = buildParams()
-      const [kpiRes, serieRes, setorRes, itensRes] = await Promise.all([
+      const [kpiRes, serieRes, setorRes, itensRes, almoxRes] = await Promise.all([
         getDashboardKPIs(params),
         getSerieTemporal(params),
         getResumoPorSetor(params),
         getResumoPorItem(params, 10),
+        getResumoPorAlmoxarifado(params),
       ])
       setKpis(kpiRes)
       setSerie(serieRes)
       setPorSetor(setorRes)
       setTopItens(itensRes)
+      setPorAlmoxarifado(almoxRes)
       // Verifica uso de custo padrão
       setAlertaCusto(kpiRes?.usandoCustoPadrao ?? false)
     } catch {
@@ -334,6 +337,35 @@ export default function DashboardPage() {
       faixa: Object.entries(faixa).map(([nome, valores]) => ({ nome, ...valores })),
     }
   }, [porSetor])
+
+  const ALMOX_COLORS: Record<string, string> = useMemo(() => ({
+    'Vila Prudente': '#f97316',
+    'Vila Guarani': '#3b82f6',
+    'Sapopemba': '#8b5cf6',
+    'Canindé': '#eab308',
+    'Geral': '#64748b',
+  }), [])
+  const DEFAULT_ALMOX_COLORS = useMemo(() => ['#f97316', '#3b82f6', '#8b5cf6', '#eab308', '#ec4899', '#06b6d4', '#64748b'], [])
+
+  const almoxChartData = useMemo(() => {
+    if (porAlmoxarifado.length === 0) return []
+    const totalNovosGeral = porAlmoxarifado.reduce((sum, a) => sum + a.totalNovos, 0)
+    const seminovosPorAlmox: Record<string, number> = {}
+    porAlmoxarifado.forEach((a) => {
+      const nome = a.almoxarifadoNome
+      seminovosPorAlmox[nome] = (seminovosPorAlmox[nome] || 0) + a.totalSeminovos
+    })
+    return [
+      {
+        categoria: 'Novos',
+        'Itens Novos': totalNovosGeral,
+      },
+      {
+        categoria: 'Seminovos',
+        ...seminovosPorAlmox,
+      },
+    ]
+  }, [porAlmoxarifado])
 
   if (loading) return <LoadingPage />
 
@@ -481,13 +513,29 @@ export default function DashboardPage() {
               title="Nenhum dado para o período selecionado"
               description="Ajuste os filtros ou importe dados da planilha."
             />
+          ) : chartMode === 'percentual' ? (
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={serie.map(s => ({
+                mes: formatMesResumido(s.mes),
+                Novos: s.totalGeral > 0 ? (s.totalNovos / s.totalGeral) * 100 : 0,
+                Seminovos: s.totalGeral > 0 ? (s.totalSeminovos / s.totalGeral) * 100 : 0,
+              }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#64748b' }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={v => `${v}%`} />
+                <Tooltip content={<CustomTooltip percent={true} />} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="Novos" stackId="a" fill={COLORS.novo} radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Seminovos" stackId="a" fill={COLORS.seminovo} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           ) : (
             <ResponsiveContainer width="100%" height={320}>
               <AreaChart data={serie.map(s => ({
-                mes: formatCompetencia(s.mes),
-                Novos: chartMode === 'percentual' ? (s.totalGeral > 0 ? s.totalNovos / s.totalGeral * 100 : 0) : s.totalNovos,
-                Seminovos: chartMode === 'percentual' ? (s.totalGeral > 0 ? s.totalSeminovos / s.totalGeral * 100 : 0) : s.totalSeminovos,
-                Total: chartMode === 'percentual' ? 100 : s.totalGeral,
+                mes: formatMesResumido(s.mes),
+                Novos: s.totalNovos,
+                Seminovos: s.totalSeminovos,
+                Total: s.totalGeral,
               }))}>
                 <defs>
                   <linearGradient id="gradNovo" x1="0" y1="0" x2="0" y2="1">
@@ -501,8 +549,8 @@ export default function DashboardPage() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#64748b' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={v => chartMode === 'percentual' ? `${v}%` : String(v)} />
-                <Tooltip content={<CustomTooltip percent={chartMode === 'percentual'} />} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+                <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Area type="monotone" dataKey="Total" stroke={COLORS.total} fill="none"
                   strokeWidth={2} strokeDasharray="4 2" dot={false} />
@@ -583,6 +631,39 @@ export default function DashboardPage() {
                 </div>
               </div>
             </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Gráfico por Almoxarifado ───────────────────────────────────── */}
+      <div className="dashboard-section">
+        <div className="card">
+          <div className="section-title mb-1">Atendimentos por Almoxarifado</div>
+          <p className="chart-description text-slate-500 text-xs mb-4">
+            Distribuição de itens Novos e Seminovos separados por almoxarifado (Vila Prudente, Vila Guarani, Sapopemba, Canindé).
+          </p>
+          {porAlmoxarifado.length === 0 ? (
+            <EmptyState title="Sem dados por almoxarifado" />
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={almoxChartData} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis dataKey="categoria" tick={{ fontSize: 12, fontWeight: 600, fill: '#1e293b' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="Itens Novos" stackId="a" fill={COLORS.novo} radius={[4, 4, 0, 0]} />
+                {porAlmoxarifado.map((almox, idx) => (
+                  <Bar
+                    key={almox.almoxarifadoNome}
+                    dataKey={almox.almoxarifadoNome}
+                    stackId="a"
+                    fill={ALMOX_COLORS[almox.almoxarifadoNome] || DEFAULT_ALMOX_COLORS[idx % DEFAULT_ALMOX_COLORS.length]}
+                    radius={idx === porAlmoxarifado.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </div>
       </div>

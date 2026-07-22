@@ -69,6 +69,25 @@ export function formatCompetencia(date: Date | string): string {
   return `${mes.charAt(0).toUpperCase()}${mes.slice(1)}/${ano}`;
 }
 
+/**
+ * Formata uma data no padrão curto "jan-24", "fev-24", etc.
+ * @example formatMesResumido("2024-01-01") → "jan-24"
+ */
+export function formatMesResumido(date: Date | string): string {
+  if (!date) return ''
+  const d = typeof date === 'string' ? new Date(date + (date.length === 10 ? 'T12:00:00' : '')) : date;
+  if (isNaN(d.getTime())) return String(date)
+  const mes = new Intl.DateTimeFormat('pt-BR', {
+    month: 'short',
+    timeZone: 'America/Sao_Paulo',
+  }).format(d).replace('.', '').toLowerCase();
+  const ano = new Intl.DateTimeFormat('pt-BR', {
+    year: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  }).format(d);
+  return `${mes}-${ano}`;
+}
+
 // -----------------------------------------------------------------------
 // Mapeamento de abreviações de meses para índice (0-based)
 // -----------------------------------------------------------------------
