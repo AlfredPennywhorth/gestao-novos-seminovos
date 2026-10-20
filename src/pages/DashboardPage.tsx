@@ -672,8 +672,30 @@ export default function DashboardPage() {
         <div className="card">
           <div className="section-title">Atendimentos por categoria</div>
           <p className="chart-description">Comparativo entre categorias femininas, masculinas e demais setores.</p>
-          <ResponsiveContainer width="100%" height={310}>
-            <BarChart data={comparativos.categoria} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+          <div className="grid grid-cols-2 gap-3 my-4">
+            {(() => {
+              const categoriasGenero = comparativos.categoria.filter(
+                (c) => c.nome === 'Feminino' || c.nome === 'Masculino'
+              )
+              const totalGenero = categoriasGenero.reduce((s, item) => s + item.Novos + item.Seminovos, 0)
+              return categoriasGenero.map((grupo) => {
+                const total = grupo.Novos + grupo.Seminovos
+                const isFem = grupo.nome === 'Feminino'
+                return (
+                  <div className={`audience-stat ${isFem ? 'stat-feminino' : 'stat-masculino'}`} key={grupo.nome}>
+                    <UsersRound size={23} />
+                    <div>
+                      <span>Público {grupo.nome}</span>
+                      <strong>{formatNumber(total)}</strong>
+                      <small>{formatPercent(totalGenero > 0 ? (total / totalGenero) * 100 : 0)} dos classificados</small>
+                    </div>
+                  </div>
+                )
+              })
+            })()}
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={comparativos.categoria} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
               <XAxis dataKey="nome" tick={{ fontSize: 11, fill: 'var(--chart-text)' }} />
               <YAxis tick={{ fontSize: 11, fill: 'var(--chart-text)' }} />

@@ -603,6 +603,8 @@
 }
 
 .audience-stat:nth-child(2) { color: #db2777; }
+.audience-stat.stat-feminino { color: #db2777; }
+.audience-stat.stat-masculino { color: #2563eb; }
 .audience-stat div { display: flex; flex-direction: column; }
 .audience-stat span,
 .audience-stat small { color: #64748b; font-size: 0.72rem; }
@@ -690,6 +692,9 @@
   background: rgba(20, 32, 51, 0.88);
   border: 1px solid #263650;
 }
+
+.dark .audience-stat.stat-feminino { color: #f472b6; }
+.dark .audience-stat.stat-masculino { color: #60a5fa; }
 
 .dark .strategic-note strong { color: #e2e8f0; }
 .dark .strategic-note p { color: #94a3b8; }
