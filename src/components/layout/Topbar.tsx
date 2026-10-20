@@ -1,6 +1,7 @@
 import { Menu, LogOut, Moon, Presentation, Sun, Key } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { Profile } from '@/types/database'
+import { APP_VERSION, COMMIT_HASH } from '@/utils/version'
 
 interface TopbarProps {
   onMenuToggle: () => void
@@ -30,9 +31,17 @@ export default function Topbar({ onMenuToggle, onSignOut, profile, darkMode, onT
         <div className="bg-white p-0.5 rounded flex items-center justify-center h-8 w-16 overflow-hidden">
           <img src="/logo.png" alt="Logo CCB" className="h-full w-full object-contain" />
         </div>
-        <span className="text-white font-semibold text-base hidden sm:block">
-          Gestão Novos & Seminovos
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-white font-semibold text-base hidden sm:block">
+            Gestão Novos & Seminovos
+          </span>
+          <span
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/20 text-white font-medium cursor-help"
+            title={`Versão ${APP_VERSION} ${COMMIT_HASH ? `(${COMMIT_HASH})` : ''}`}
+          >
+            {APP_VERSION}
+          </span>
+        </div>
       </div>
 
       {/* Ações do cabeçalho */}

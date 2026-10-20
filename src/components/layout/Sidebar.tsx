@@ -4,6 +4,7 @@ import {
   Tag, Package, DollarSign, Users, BarChart3,
   ClipboardList, X
 } from 'lucide-react'
+import { APP_VERSION, BUILD_DATE, COMMIT_HASH } from '@/utils/version'
 
 interface NavItem {
   to: string
@@ -143,9 +144,12 @@ export default function Sidebar({ open, onClose, role }: SidebarProps) {
       </nav>
 
       {/* Rodapé do sidebar */}
-      <div className="absolute bottom-0 left-0 right-0 px-4 py-3 border-t border-institutional-gray-border">
+      <div className="absolute bottom-0 left-0 right-0 px-4 py-3 border-t border-institutional-gray-border bg-white dark:bg-slate-900">
         <p className="text-[10px] text-slate-400 text-center">
           Gestão Novos & Seminovos © {new Date().getFullYear()}
+        </p>
+        <p className="text-[9px] text-slate-400 text-center font-mono mt-0.5">
+          {APP_VERSION} {COMMIT_HASH ? `(${COMMIT_HASH})` : ''} {BUILD_DATE ? `• ${BUILD_DATE}` : ''}
         </p>
       </div>
     </aside>

@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom'
+import { APP_VERSION, COMMIT_HASH } from '@/utils/version'
 
 export default function AuthLayout() {
   return (
@@ -54,6 +55,10 @@ export default function AuthLayout() {
           </div>
 
           <Outlet />
+
+          <p className="text-center text-[10px] text-slate-400 font-mono mt-6">
+            Versão {APP_VERSION} {COMMIT_HASH ? `(${COMMIT_HASH})` : ''}
+          </p>
         </div>
       </div>
     </div>
