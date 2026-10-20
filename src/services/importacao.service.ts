@@ -257,6 +257,16 @@ function isCabecalhoAlmoxarifado(valor: unknown): boolean {
   )
 }
 
+function isLinhaTotalizador(texto: string): boolean {
+  const chave = chaveTexto(texto)
+  return (
+    chave.startsWith('SUB-TOTAL') ||
+    chave.startsWith('SUBTOTAL') ||
+    chave.startsWith('SUB TOTAL') ||
+    chave.startsWith('TOTAL')
+  )
+}
+
 function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string): LinhaExcel[] {
   const competencia = extrairCompetenciaDoArquivo(workbook, nomeArquivo)
   const periodo = competencia.slice(0, 7)
@@ -303,12 +313,7 @@ function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string)
       const colunasQuantidade = [layout.novosCol, ...almoxarifadoCols.map((almox) => almox.col)]
       const possuiQuantidade = colunasQuantidade.some((col) => normalizarTexto(row[col]) !== '')
 
-      const itemTextoUpper = chaveTexto(itemTexto)
-      if (
-        itemTextoUpper.startsWith('SUB-TOTAL') ||
-        itemTextoUpper.startsWith('SUBTOTAL') ||
-        itemTextoUpper.startsWith('TOTAL GERAL')
-      ) {
+      if (isLinhaTotalizador(itemTexto)) {
         continue
       }
 
@@ -320,7 +325,7 @@ function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string)
             chaveTexto(setor).startsWith(prefix)
           )
         ) {
-          setorAtual = setor
+          setorAtual = normalizarNomeSetor(setor)
         }
         continue
       }
@@ -330,12 +335,7 @@ function parseRelatorioComparativo(workbook: XLSX.WorkBook, nomeArquivo: string)
       if (!itemOriginal || !setorAtual) continue
 
       const item = sanitizarNomeItem(itemOriginal, setorAtual)
-      const itemUpper = chaveTexto(item)
-      if (
-        itemUpper.startsWith('SUB-TOTAL') ||
-        itemUpper.startsWith('SUBTOTAL') ||
-        itemUpper.startsWith('TOTAL GERAL')
-      ) {
+      if (isLinhaTotalizador(item)) {
         continue
       }
 
@@ -652,9 +652,10 @@ function classificacaoDaLinha(
   linha: LinhaExcel,
   classificacoes: Map<string, ClassificacaoResolvida>
 ): ClassificacaoResolvida {
-  if (!linha.codigo) return { setor: linha.setor || SETOR_OUTROS, itemId: null, origem: 'CADASTRO' }
+  const setorPadrao = normalizarNomeSetor(linha.setor) || SETOR_OUTROS
+  if (!linha.codigo) return { setor: setorPadrao, itemId: null, origem: 'CADASTRO' }
   return classificacoes.get(chaveTexto(linha.codigo)) ?? {
-    setor: linha.setor || SETOR_OUTROS,
+    setor: setorPadrao,
     itemId: null,
     origem: 'CADASTRO',
   }
